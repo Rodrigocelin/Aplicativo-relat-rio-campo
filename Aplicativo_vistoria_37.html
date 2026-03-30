@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório Técnico - Arborização Urbana</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    h1 { margin-top: 0; color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 10px; }
+    h2 { margin-top: 0; font-size: 16px; background: #e8f5e9; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; color: #1b5e20; }
+    label { display: block; margin-top: 10px; font-weight: bold; color: #333; }
+    input, textarea, select { width: 100%; padding: 10px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    input[readonly] { background: #eee; cursor: not-allowed; }
+
+    .grid-endereco { display: grid; grid-template-columns: 1fr 1fr 120px; gap: 12px; }
+    .grid-arvore { display: grid; grid-template-columns: 1fr 120px 1fr 120px 120px; gap: 12px; }
+    .grid-plantio { display: grid; grid-template-columns: 1fr 120px 1fr 200px; gap: 12px; }
+    .grid-responsavel { display: grid; grid-template-columns: 1fr 200px; gap: 12px; }
+
+    @media (max-width: 800px) {
+      .grid-endereco, .grid-arvore, .grid-plantio, .grid-responsavel { grid-template-columns: 1fr; }
+    }
+
+    .bloco-arvore { border: 1px solid #ddd; padding: 15px; margin-top: 20px; border-radius: 6px; background: #fafafa; position: relative; }
+    .btn-remove { background: #c62828; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+    button { margin-top: 16px; padding: 12px 18px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+    .btn-primary { background: #1976d2; color: #fff; width: 100%; font-size: 16px; }
+    .btn-primary:hover { background: #115293; }
+    .btn-add { background: #2e7d32; color: #fff; }
+    .btn-gps { background: #455a64; color: #fff; display: flex; align-items: center; gap: 8px; }
+
+    #mapa { height: 300px; width: 100%; border-radius: 6px; border: 1px solid #ccc; margin-top: 10px; overflow: hidden; position: relative; z-index: 0; }
+    .coords { margin-top: 8px; font-size: 13px; font-family: monospace; color: #555; background: #eee; padding: 5px; border-radius: 4px; }
+
+    .grid-fotos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+    .grid-fotos-arvore { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
+    .foto-item { display: flex; flex-direction: column; gap: 6px; background: #f9f9f9; padding: 8px; border: 1px dashed #bbb; border-radius: 4px; }
+    .preview { width: 100%; height: 160px; object-fit: contain; background: #000; border: 1px solid #ccc; border-radius: 4px; display: none; }
+    @media (max-width: 600px) { .grid-fotos { grid-template-columns: 1fr; } }
+
+    .btn-group-ref { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 8px; }
+    .btn-ref { background: #fff; border: 2px solid #455a64; color: #455a64; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 4px; text-align: center; font-size: 14px; }
+    .btn-ref.active { background: #455a64; color: #fff; }
+    .btn-group-servico { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 8px; }
+    .btn-servico { background: #fff; border: 2px solid #1976d2; color: #1976d2; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 4px; text-align: center; }
+    .btn-servico.active { background: #1976d2; color: #fff; }
+
+    .btn-pdf { background: #2e7d32; color: #fff; width: 100%; font-size: 16px; margin-top: 10px; }
+    .diag-widget { border: 1px solid #ccc; border-radius: 4px; padding: 8px; background: #fafafa; margin-top: 4px; }
+    .diag-busca { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 6px; font-size: 14px; }
+    .diag-lista { max-height: 180px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; background: #fff; }
+    .diag-lista-item { padding: 8px 10px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; }
+    .diag-lista-item:hover { background: #e8f5e9; }
+    .diag-lista-item.marcado { background: #e8f5e9; font-weight: bold; }
+    .diag-lista-item .diag-check { width: 16px; height: 16px; border: 2px solid #2e7d32; border-radius: 3px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; color: #2e7d32; }
+    .diag-selecionados { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .diag-tag { background: #455a64; color: #fff; border-radius: 20px; padding: 4px 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .diag-tag-remove { cursor: pointer; font-weight: bold; font-size: 14px; line-height: 1; }
+    .esp-widget { border: 1px solid #ccc; border-radius: 4px; padding: 8px; background: #fafafa; margin-top: 4px; }
+    .esp-busca { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 6px; font-size: 14px; }
+    .esp-lista { max-height: 160px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; background: #fff; }
+    .esp-lista-item { padding: 8px 10px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+    .esp-lista-item:hover { background: #e8f5e9; }
+    .esp-lista-item.selecionado { background: #e8f5e9; font-weight: bold; }
+    .esp-selecionada { display: flex; align-items: center; justify-content: space-between; background: #455a64; color: #fff; border-radius: 20px; padding: 5px 12px; font-size: 13px; margin-top: 6px; }
+    .esp-selecionada-remove { cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; margin-left: 8px; }
+    .btn-pdf:hover { background: #1b5e20; }
+    .btn-limpar { background: #fff; color: #c62828; border: 2px solid #c62828; width: 100%; font-size: 15px; margin-top: 8px; }
+    .btn-limpar:hover { background: #ffebee; }
+
+    /* ===== ESTILOS DO RELATÓRIO PDF ===== */
+    #relatorio-pdf { display: none; }
+
+    @media print {
+      @page { size: A4 portrait; margin: 0; }
+      body { background: #fff; padding: 0; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .container { display: none !important; }
+      #relatorio-pdf { display: block !important; }
+
+      .pdf-pagina {
+        width: 210mm;
+        height: 297mm;
+        padding: 0;
+        margin: 0;
+        page-break-after: always;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+        font-size: 11px;
+        color: #222;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .pdf-pagina:last-child { page-break-after: avoid; }
+      .pdf-conteudo { flex: 1; overflow: hidden; }
+      .pdf-grupo-arvore { page-break-inside: avoid; }
+      .pdf-secao { page-break-inside: avoid; }
+
+      .pdf-header {
+        background: #1b5e20 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        color: #fff !important;
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .pdf-header-logo {
+        width: 50px; height: 50px;
+        background: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 9px; color: #1b5e20 !important;
+        text-align: center; line-height: 1.2; flex-shrink: 0;
+      }
+      .pdf-header-titulo { flex: 1; }
+      .pdf-header-titulo h1 { margin: 0; font-size: 14px; font-weight: 700; color: #fff !important; }
+      .pdf-header-titulo p { margin: 2px 0 0; font-size: 10px; color: #fff !important; opacity: 0.9; }
+      .pdf-header-meta { text-align: right; font-size: 10px; line-height: 1.6; color: #fff !important; flex-shrink: 0; }
+
+      .pdf-secao { padding: 8px 18px; border-bottom: 0.5px solid #e0e0e0; }
+      .pdf-secao-titulo {
+        font-size: 9px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.8px; color: #1b5e20 !important;
+        border-bottom: 1.5px solid #1b5e20 !important;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        padding-bottom: 2px; margin-bottom: 6px;
+      }
+      .pdf-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .pdf-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+      .pdf-campo label { font-size: 8px; color: #777 !important; display: block; margin-bottom: 1px; }
+      .pdf-campo span { font-size: 11px; font-weight: 500; }
+
+      .pdf-mapa-img { display: block; width: 100%; height: 55mm; object-fit: cover; border: 1px solid #a5d6a7; border-radius: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .pdf-mapa-placeholder {
+        background: #e8f5e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        border: 1px solid #a5d6a7; border-radius: 3px; height: 60px;
+        display: flex; align-items: center; justify-content: center;
+        color: #388e3c !important; font-size: 10px;
+      }
+      .pdf-coords { background: #f1f8e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        border: 0.5px solid #aed581; border-radius: 3px; padding: 3px 8px;
+        font-size: 9px; font-family: monospace; color: #33691e !important; margin-top: 4px; display: inline-block; }
+
+      table.pdf-tabela { width: 100%; border-collapse: collapse; font-size: 13px; color: #000 !important; }
+      table.pdf-tabela th {
+        background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        color: #222 !important; padding: 4px 6px; text-align: left;
+        font-size: 11px; border: 0.5px solid #c8e6c9;
+      }
+      table.pdf-tabela td { padding: 5px 6px; border: 0.5px solid #ccc; vertical-align: top; color: #000 !important; }
+      table.pdf-tabela tr:nth-child(even) td { background: #fafafa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+      .pdf-diag-bloco { margin-top: 8px; }
+      .pdf-diag-item { border: 0.5px solid #e0e0e0; border-radius: 3px; padding: 6px 8px; margin-bottom: 5px; background: #fafafa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .pdf-diag-titulo { font-size: 12px; font-weight: 700; color: #000 !important; margin-bottom: 3px; }
+      .pdf-diag-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+      .pdf-diag-label { font-size: 11px; color: #444 !important; display: block; margin-bottom: 1px; }
+      .pdf-diag-texto { color: #000 !important; line-height: 1.5; }
+      .pdf-indicacao-texto { color: #000 !important; line-height: 1.5; }
+
+      .pdf-obs { margin: 0; font-size: 12px; color: #000 !important; line-height: 1.6; }
+
+      .pdf-ident-row1 { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 0.5px dashed #c8e6c9; }
+      .pdf-ident-row2 { display: grid; grid-template-columns: 1fr 2fr 80px; gap: 0; }
+      .pdf-ident-cell { padding: 4px 10px 4px 0; }
+      .pdf-ident-sep { border-left: 1px solid #e8f5e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding-left: 10px; }
+      .pdf-ident-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #555 !important; margin-bottom: 2px; }
+      .pdf-ident-valor { font-size: 13px; font-weight: 600; color: #000 !important; }
+      .pdf-badge-ref { display: inline-block; background: #f0f0f0 !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-radius: 3px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
+      .pdf-badge-serv { display: inline-block; background: #f0f0f0 !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-radius: 3px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
+
+      .pdf-footer {
+        background: #1b5e20 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        padding: 7px 18px; font-size: 8px; color: #fff !important;
+        display: flex; align-items: center; justify-content: space-between;
+        width: 100%; box-sizing: border-box; margin-top: auto;
+        border-top: 2px solid #145214;
+      }
+      .pdf-footer-assinatura { display: flex; flex-direction: column; gap: 2px; }
+      .pdf-ass-esquerda { font-size: 8px; color: #fff !important; opacity: 0.9; }
+      .pdf-ass-linha { font-size: 9px; font-weight: 700; color: #fff !important; }
+      .pdf-footer-pagina { font-size: 8px; color: #fff !important; opacity: 0.85; white-space: nowrap; }
+
+      .pdf-header2 {
+        background: #1b5e20 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        color: #fff !important; padding: 8px 18px;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .pdf-header2 span { font-size: 12px; font-weight: 700; color: #fff !important; }
+      .pdf-header2 small { font-size: 10px; color: #fff !important; opacity: 0.85; }
+
+      .pdf-fotos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+      .pdf-fotos-conteudo { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+      .pdf-grupo-arvore { display: flex; flex-direction: column; }
+      .pdf-grupo-titulo { font-size: 12px; font-weight: 700; color: #222 !important; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 5px 8px; border-radius: 3px; margin-bottom: 5px; }
+      .pdf-foto-legenda-par { font-size: 11px; font-weight: 600; color: #222 !important; text-align: center; padding: 5px 8px; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-radius: 0 0 3px 3px; margin-top: 4px; }
+      .pdf-foto-box { border: 1px dashed #bbb; border-radius: 3px; overflow: hidden; }
+      .pdf-foto-box img { width: 100%; height: 85mm; object-fit: cover; display: block; }
+      .pdf-foto-legenda { font-size: 10px; color: #222 !important; text-align: center; padding: 3px; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Relatório Técnico</h1>
+
+    <form id="dataForm">
+      <label>Ref.</label>
+      <input type="hidden" id="referencia" required />
+      <div class="btn-group-ref" id="btnGroupRef">
+        <div class="btn-ref" onclick="selecionarRef('SIC', this)">SIC</div>
+        <div class="btn-ref" onclick="selecionarRef('Protocolo', this)">Protocolo</div>
+        <div class="btn-ref" onclick="selecionarRef('Processo', this)">Processo</div>
+        <div class="btn-ref" onclick="selecionarRef('Indicação', this)">Indicação</div>
+        <div class="btn-ref" onclick="selecionarRef('Demanda Interna', this)">Demanda Interna</div>
+      </div>
+
+      <label>Número da Referência</label>
+      <input type="text" id="numeroReferencia" required placeholder="Ex: 1234/2026" />
+
+      <label>Relatório Nº</label>
+      <input type="text" id="relatorioNumero" readonly />
+
+      <div class="grid-endereco">
+        <div>
+          <label>Bairro</label>
+          <select id="bairro" required>
+            <option value="">Selecione...</option>
+            <option value="Antônio Honório">Antônio Honório</option>
+            <option value="Ariovaldo Favalessa">Ariovaldo Favalessa</option>
+            <option value="Goiabeiras">Goiabeiras</option>
+            <option value="Jabour">Jabour</option>
+            <option value="Jardim da Penha">Jardim da Penha</option>
+            <option value="Maria Ortiz">Maria Ortiz</option>
+            <option value="Mata da Praia">Mata da Praia</option>
+            <option value="Morada de Camburi">Morada de Camburi</option>
+            <option value="Pontal de Camburi">Pontal de Camburi</option>
+            <option value="República">República</option>
+            <option value="Segurança do Lar">Segurança do Lar</option>
+            <option value="Solon Borges">Solon Borges</option>
+ 
+
+            </select>
+        </div>
+        <div><label>Rua</label><input type="text" id="rua" required /></div>
+        <div><label>Nº</label><input type="text" id="numeroEndereco" required /></div>
+      </div>
+
+      <label>Localização (GPS)</label>
+      <div id="mapa"></div>
+      <div class="coords" id="coords">Aguardando captura de localização...</div>
+      <button type="button" class="btn-gps" onclick="capturarLocalizacao()">📍 Capturar localização atual</button>
+
+      <label>Serviço Principal</label>
+      <input type="hidden" id="servico" required />
+      <div class="btn-group-servico" id="btnGroupServico">
+        <div class="btn-servico" onclick="selecionarServico('Poda', this)">Poda</div>
+        <div class="btn-servico" onclick="selecionarServico('Retirada', this)">Retirada</div>
+        <div class="btn-servico" onclick="selecionarServico('Área Livre', this)">Área Livre</div>
+        <div class="btn-servico" onclick="selecionarServico('Plantio', this)">Plantio</div>
+        <div class="btn-servico" onclick="selecionarServico('Tratamento Fitossanitário', this)">Tratamento Fitossanitário</div>
+        <div class="btn-servico" onclick="selecionarServico('Outros', this)">Outros</div>
+      </div>
+
+      <div id="arvoresContainer"></div>
+      <button type="button" class="btn-add" onclick="adicionarArvore()">+ Adicionar outra árvore</button>
+
+      <label>Observações Gerais</label>
+      <notes>Pode ser preenchido por voz através do teclado.</notes>
+      <textarea id="observacoes" rows="3"></textarea>
+
+      <div class="grid-responsavel">
+        <div><label>Responsável Técnico</label><input type="text" id="responsavelTecnico" readonly /></div>
+        <div><label>Data da Vistoria</label><input type="date" id="dataRelatorio" required /></div>
+      </div>
+
+    </form>
+
+    <button type="button" class="btn-pdf" onclick="gerarPDF()">📥 Gerar e Baixar Relatório</button>
+    <button type="button" class="btn-limpar" onclick="limparFormulario()">🗑️ Limpar Formulário</button>
+  </div>
+
+  <!-- CONTAINER DO RELATÓRIO PDF (oculto na tela, visível apenas na impressão) -->
+  <div id="relatorio-pdf"></div>
+
+
+
+  <script>
+    const arvoresContainer = document.getElementById('arvoresContainer');
+    const relatorioNumeroInput = document.getElementById('relatorioNumero');
+    const servicoInput = document.getElementById('servico');
+    const coordsDiv = document.getElementById('coords');
+    const responsavelInput = document.getElementById('responsavelTecnico');
+
+    responsavelInput.value = "Rodrigo Celin - CREA-ES 013929/D";
+    document.getElementById('dataRelatorio').valueAsDate = new Date();
+
+    let mapa, marcador;
+    let latitude = null;
+    let longitude = null;
+    let mapaImagemBase64 = null;
+    let contadorArvores = 0;
+    
+    let registros = JSON.parse(localStorage.getItem('registros')) || [];
+    let contadores = JSON.parse(localStorage.getItem('contadoresRelatorio')) || {};
+
+    function gerarNumeroRelatorio() {
+      const ano = new Date().getFullYear().toString().slice(-2);
+      if (!contadores[ano]) contadores[ano] = 1;
+      return `${contadores[ano].toString().padStart(2, '0')}/${ano}`;
+    }
+
+    function confirmarNumeroRelatorio() {
+      const ano = new Date().getFullYear().toString().slice(-2);
+      contadores[ano] = (contadores[ano] || 1) + 1;
+      localStorage.setItem('contadoresRelatorio', JSON.stringify(contadores));
+    }
+
+    function initMapa() {
+      mapa = L.map('mapa').setView([-20.3155, -40.3128], 13);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(mapa);
+      setTimeout(() => { mapa.invalidateSize(); }, 200);
+    }
+
+    function capturarLocalizacao() {
+      if (!navigator.geolocation) { alert('Geolocalização não suportada.'); return; }
+      navigator.geolocation.getCurrentPosition(pos => {
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+        coordsDiv.innerText = `Lat: ${latitude.toFixed(6)} | Long: ${longitude.toFixed(6)}`;
+        mapa.setView([latitude, longitude], 18);
+        if (!marcador) marcador = L.marker([latitude, longitude]).addTo(mapa);
+        else marcador.setLatLng([latitude, longitude]);
+        // Aguarda tiles carregarem e captura o mapa como imagem
+        mapa.once('idle', function() {
+          capturarImagemMapa();
+        });
+        // Fallback: captura após 3s mesmo sem evento idle
+        setTimeout(capturarImagemMapa, 3000);
+      }, error => {
+        alert('Erro ao obter localização. Verifique o GPS.');
+      });
+    }
+
+    let _mapaCapturado = false;
+    function capturarImagemMapa() {
+      if (_mapaCapturado) return;
+      _mapaCapturado = true;
+      setTimeout(() => { _mapaCapturado = false; }, 5000);
+
+      // Usa leaflet-image para capturar tiles (biblioteca leve que contorna CORS)
+      if (typeof leafletImage !== 'undefined') {
+        leafletImage(mapa, function(err, canvas) {
+          if (!err && canvas) {
+            // Desenha o marcador por cima manualmente
+            const ctx = canvas.getContext('2d');
+            const ponto = mapa.latLngToContainerPoint([latitude, longitude]);
+            ctx.beginPath();
+            ctx.arc(ponto.x, ponto.y - 10, 10, 0, 2*Math.PI);
+            ctx.fillStyle = '#c62828'; ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(ponto.x-6, ponto.y);
+            ctx.lineTo(ponto.x, ponto.y+10);
+            ctx.lineTo(ponto.x+6, ponto.y);
+            ctx.fillStyle = '#c62828'; ctx.fill();
+            // Coordenadas
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(4, 4, 240, 22);
+            ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
+            ctx.fillText('Lat: ' + latitude.toFixed(6) + '  Long: ' + longitude.toFixed(6), 8, 20);
+            mapaImagemBase64 = canvas.toDataURL('image/png');
+          }
+        });
+      }
+    }
+
+    function previewFoto(input, index) {
+      const file = input.files && input.files[0];
+      const img = document.getElementById(`preview-${index}`);
+      if (!img) return;
+      if (!file) { img.style.display = 'none'; img.src = ''; return; }
+      const reader = new FileReader();
+      reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
+      reader.readAsDataURL(file);
+    }
+
+    function previewFotoArvore(input, index) {
+      const file = input.files && input.files[0];
+      const bloco = input.closest('.bloco-arvore');
+      const imgs = bloco.querySelectorAll('.preview-arvore');
+      const img = imgs[index];
+      if (!img) return;
+      if (!file) { img.style.display = 'none'; img.removeAttribute('src'); return; }
+      const reader = new FileReader();
+      reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
+      reader.readAsDataURL(file);
+    }
+
+    function coletarFotosArvore(bloco) {
+      const fotos = [];
+      bloco.querySelectorAll('.preview-arvore').forEach(img => {
+        if (img.src && img.src.startsWith('data:') && img.style.display !== 'none') {
+          fotos.push(img.src);
+        }
+      });
+      return fotos;
+    }
+
+    function coletarFotos() {
+      const fotos = [];
+      for (let i = 0; i < 4; i++) {
+        const img = document.getElementById(`preview-${i}`);
+        if (img && img.src && img.style.display !== 'none') fotos.push(img.src);
+      }
+      return fotos;
+    }
+
+    function selecionarRef(valor, elemento) {
+      document.querySelectorAll('.btn-ref').forEach(btn => btn.classList.remove('active'));
+      elemento.classList.add('active');
+      document.getElementById('referencia').value = valor;
+    }
+
+    function selecionarServico(valor, elemento) {
+      document.querySelectorAll('.btn-servico').forEach(btn => btn.classList.remove('active'));
+      elemento.classList.add('active');
+      servicoInput.value = valor;
+      arvoresContainer.innerHTML = ''; 
+      contadorArvores = 0; 
+      adicionarArvore();
+    }
+
+    function selectPosicao() {
+      return `<select data-field="posicao"><option value="">Selecione...</option><option>Calçada</option><option>Canteiro Central</option><option>Canteiro Lateral</option><option>Recanto</option><option>Rotatória/Trevo</option><option>Alameda</option><option>Orla</option></select>`;
+    }
+
+    function blocoArvorePadrao(numero) {
+      return `<h2><span>Árvore ${numero}</span><button type="button" class="btn-remove" onclick="removerArvore(this)">Remover</button></h2>
+        <label>Espécie</label>
+        <input type="hidden" data-field="especie" />
+        <div class="esp-widget">
+          <input type="text" class="esp-busca" placeholder="🔍 Buscar espécie..." oninput="filtrarEsp(this)" />
+          <div class="esp-lista"></div>
+          <div class="esp-selecionada-container"></div>
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <input type="text" class="esp-outro" placeholder="✏️ Outra espécie (digite e pressione +)" style="flex:1" />
+            <button type="button" onclick="adicionarOutraEsp(this)" style="margin-top:0;padding:8px 14px;background:#455a64;color:#fff;border-radius:4px;font-size:13px">+</button>
+          </div>
+        </div>
+        <div class="grid-arvore">
+          <div><label>Quantidade</label><input type="number" data-field="quantidade" value="1" /></div>
+          <div><label>Altura (m)</label><input type="number" step="0.1" data-field="altura" /></div>
+          <div><label>Posição</label>${selectPosicao()}</div>
+          <div><label>CAP (cm)</label><input type="number" data-field="cap" /></div>
+        </div>
+        <label>Diagnóstico</label>
+        <input type="hidden" data-field="diagnostico" />
+        <div class="diag-widget">
+          <input type="text" class="diag-busca" placeholder="🔍 Buscar diagnóstico..." oninput="filtrarDiag(this)" />
+          <div class="diag-lista"></div>
+          <div class="diag-selecionados"></div>
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <input type="text" class="diag-outro" placeholder="✏️ Outro (digite e pressione +)" style="flex:1" />
+            <button type="button" onclick="adicionarOutroDiag(this)" style="margin-top:0;padding:8px 14px;background:#455a64;color:#fff;border-radius:4px;font-size:13px">+</button>
+          </div>
+        </div>
+        <label>Indicação Técnica</label><textarea data-field="indicacao" placeholder="Poda de limpeza, rebaixamento, etc."></textarea>
+        <label>Obs. Específicas</label><textarea data-field="obs"></textarea>
+        <label>Evidências Fotográficas</label>
+        <div class="grid-fotos-arvore">
+          <div class="foto-item">
+            <span style="font-size:12px;color:#555">Foto 1</span>
+            <input type="file" accept="image/*" capture="environment" class="foto-arvore-input" onchange="previewFotoArvore(this,0)" />
+            <img class="preview-arvore" data-foto="0" style="display:none;width:100%;height:140px;object-fit:cover;border-radius:4px;margin-top:4px" />
+          </div>
+          <div class="foto-item">
+            <span style="font-size:12px;color:#555">Foto 2</span>
+            <input type="file" accept="image/*" capture="environment" class="foto-arvore-input" onchange="previewFotoArvore(this,1)" />
+            <img class="preview-arvore" data-foto="1" style="display:none;width:100%;height:140px;object-fit:cover;border-radius:4px;margin-top:4px" />
+          </div>
+        </div>`;
+    }
+
+    function blocoArvorePlantio(numero) {
+      return `<h2><span>Árvore ${numero} (Plantio)</span><button type="button" class="btn-remove" onclick="removerArvore(this)">Remover</button></h2>
+        <label>Espécie Sugerida</label>
+        <input type="hidden" data-field="especie" />
+        <div class="esp-widget">
+          <input type="text" class="esp-busca" placeholder="🔍 Buscar espécie..." oninput="filtrarEsp(this)" />
+          <div class="esp-lista"></div>
+          <div class="esp-selecionada-container"></div>
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <input type="text" class="esp-outro" placeholder="✏️ Outra espécie (digite e pressione +)" style="flex:1" />
+            <button type="button" onclick="adicionarOutraEsp(this)" style="margin-top:0;padding:8px 14px;background:#455a64;color:#fff;border-radius:4px;font-size:13px">+</button>
+          </div>
+        </div>
+        <div class="grid-plantio">
+          <div><label>Quantidade</label><input type="number" data-field="quantidade" value="1" /></div>
+          <div><label>Posição</label>${selectPosicao()}</div>
+          <div><label>Área Livre</label><select data-field="area_livre"><option value="">Selecione...</option><option>Área pavimentada</option><option>Área livre aberta</option><option>Área não pavimentada</option></select></div>
+          <div><label>Largura Calçada (m)</label><input type="number" step="0.1" data-field="largura_calcada" /></div>
+        </div>
+        <label>Obs. do Local</label><textarea data-field="obs"></textarea>
+        <label>Evidências Fotográficas</label>
+        <div class="grid-fotos-arvore">
+          <div class="foto-item">
+            <span style="font-size:12px;color:#555">Foto 1</span>
+            <input type="file" accept="image/*" capture="environment" class="foto-arvore-input" onchange="previewFotoArvore(this,0)" />
+            <img class="preview-arvore" data-foto="0" style="display:none;width:100%;height:140px;object-fit:cover;border-radius:4px;margin-top:4px" />
+          </div>
+          <div class="foto-item">
+            <span style="font-size:12px;color:#555">Foto 2</span>
+            <input type="file" accept="image/*" capture="environment" class="foto-arvore-input" onchange="previewFotoArvore(this,1)" />
+            <img class="preview-arvore" data-foto="1" style="display:none;width:100%;height:140px;object-fit:cover;border-radius:4px;margin-top:4px" />
+          </div>
+        </div>`;
+    }
+
+    const ESPECIES = [
+      "Abacateiro","Acacia Mangium","Amendoim Bravo","Aroeira","Aroeira Pimenteira",
+      "Azeitona","Azeitona da Terra","Bauinia","Bauinia Branca","Bauinia Purpúrea",
+      "Caju","Canafístula","Canjerana","Carambola","Cassia Grandis","Castanheira",
+      "Cedro","Cerejeira","Coqueiro","Embaúba","Eritrina","Eucalipto",
+      "Ficus","Flamboyant","Frangipane","Gameleira","Goiabeira","Guapuruvú",
+      "Ipê Amarelo","Ipê Branco","Ipê Rosa","Ipê Roxo","Ipê Verde",
+      "Jacarandá","Jamelão","Jatobá","Jenipapo","Jequitibá","Jucá",
+      "Leucena","Limoeiro","Mangueira","Maricá","Mogno","Mulungu",
+      "Nim","Oiti","Palmeira Imperial","Palmeira Jerivá","Palmeira Leque",
+      "Pau Brasil","Pau Formiga","Pau Ferro","Pequi","Pitanga",
+      "Quaresmeira","Resedá","Sabiá","Sibipiruna","Sombreiro",
+      "Sumaúma","Tamarindo","Tipuana","Uvaia"
+    ];
+
+    function initEspWidget(widget) {
+      renderListaEsp(widget, ESPECIES);
+    }
+
+    function renderListaEsp(widget, itens) {
+      const lista = widget.querySelector('.esp-lista');
+      const atual = getEspSelecionada(widget);
+      lista.innerHTML = itens.map(e => `
+        <div class="esp-lista-item ${e === atual ? 'selecionado' : ''}" onclick="selecionarEsp(this, '${e.replace(/'/g,"\'")}')">
+          ${e}
+        </div>`).join('');
+    }
+
+    function filtrarEsp(input) {
+      const widget = input.closest('.esp-widget');
+      const termo = input.value.toLowerCase();
+      const filtrados = ESPECIES.filter(e => e.toLowerCase().includes(termo));
+      renderListaEsp(widget, filtrados);
+    }
+
+    function getEspSelecionada(widget) {
+      const bloco = widget.closest('.bloco-arvore');
+      const h = bloco ? bloco.querySelector('[data-field="especie"]') : null;
+      return h ? h.value : '';
+    }
+
+    function salvarEsp(widget, valor) {
+      const bloco = widget.closest('.bloco-arvore');
+      if (bloco) {
+        const h = bloco.querySelector('[data-field="especie"]');
+        if (h) h.value = valor;
+      }
+    }
+
+    function renderEspSelecionada(widget, valor) {
+      const cont = widget.querySelector('.esp-selecionada-container');
+      if (!valor) { cont.innerHTML = ''; return; }
+      cont.innerHTML = `<div class="esp-selecionada">
+        <span>${valor}</span>
+        <span class="esp-selecionada-remove" onclick="removerEsp(this)">×</span>
+      </div>`;
+    }
+
+    function selecionarEsp(item, valor) {
+      const widget = item.closest('.esp-widget');
+      salvarEsp(widget, valor);
+      renderListaEsp(widget, ESPECIES);
+      renderEspSelecionada(widget, valor);
+      widget.querySelector('.esp-busca').value = '';
+    }
+
+    function adicionarOutraEsp(btn) {
+      const widget = btn.closest('.esp-widget');
+      const input = widget.querySelector('.esp-outro');
+      const valor = input.value.trim();
+      if (!valor) return;
+      salvarEsp(widget, valor);
+      renderEspSelecionada(widget, valor);
+      input.value = '';
+    }
+
+    function removerEsp(btn) {
+      const widget = btn.closest('.esp-widget');
+      salvarEsp(widget, '');
+      renderEspSelecionada(widget, '');
+      renderListaEsp(widget, ESPECIES);
+    }
+
+    const DIAGNOSTICOS = [
+      "Área livre em desconformidade com as diretrizes técnicas",
+      "Vegetal com problemas no tutoramento","Vegetal morto","Vegetal Inclinado",
+      "Vegetal inclinado em direção à residência","Vegetal inclinado em direção à via pública",
+      "Vegetal com lesão necrótica no tronco","Vegetal com lesão necrótica em galhos",
+      "Vegetal com lesão necrótica e perda de tecidos (oco)","Vegetal com injúria mecânica",
+      "Vegetal com indicativo de injúria química",
+      "Vegetal em conflito com obra de infraestrutura urbana","Vegetal em conflito com serviço público",
+      "Vegetal em conflito com obras/serviços de construção e reforma de edificações",
+      "Vegetal em conflito com muro","Vegetal em conflito com mobiliário urbano",
+      "Vegetal em local inadequado","Vegetal em risco de queda","Vegetal com deficiência nutricional",
+      "Vegetal em bom estado vegetativo","Vegetal sem necessidade de manejo (no momento da vistoria)",
+      "Vegetal apresentando infestação por cupins","Vegetal apresentando infestação por pulgões",
+      "Vegetal apresentando infestação por cochonilha","Vegetal apresentando infestação por fumagina",
+      "Copa em conflito com a iluminação pública","Copa em conflito com edificação",
+      "Copa interferindo no trânsito de pedestres","Copa interferindo no trânsito de veículos",
+      "Copa com galhos secos","Copa com galhos doentes","Copa com galhos pendentes em risco de queda",
+      "Copa desequilibrada","Copa descaracterizada","Copa em conflito com a rede elétrica",
+      "Copa incompatível com o espaço disponível","Copa infestada por erva passarinho",
+      "Raízes afloradas","Raízes causando rachaduras na calçada","Raízes causando rachaduras no muro",
+      "Raízes causando rachaduras na via pública","Raízes causando rachaduras na calçada e no muro",
+      "Raízes causando rachaduras na calçada, no muro e na via pública",
+      "Raízes em conflito com a rede de esgoto","Raízes em conflito com a rede de água",
+      "Raízes em conflito com a rede de drenagem pluvial","Raízes em conflito com o mobiliário urbano",
+      "Outras situações"
+    ];
+
+    function initDiagWidget(widget) {
+      const lista = widget.querySelector('.diag-lista');
+      renderListaDiag(widget, DIAGNOSTICOS);
+    }
+
+    function renderListaDiag(widget, itens) {
+      const lista = widget.querySelector('.diag-lista');
+      const selecionados = getDiagSelecionados(widget);
+      lista.innerHTML = itens.map(d => {
+        const marcado = selecionados.includes(d);
+        return `<div class="diag-lista-item ${marcado ? 'marcado' : ''}" onclick="toggleDiag(this, '${d.replace(/'/g,"\'")}')">
+          <div class="diag-check">${marcado ? '✓' : ''}</div>
+          <span>${d}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function filtrarDiag(input) {
+      const widget = input.closest('.diag-widget');
+      const termo = input.value.toLowerCase();
+      const filtrados = DIAGNOSTICOS.filter(d => d.toLowerCase().includes(termo));
+      renderListaDiag(widget, filtrados);
+    }
+
+    function toggleDiag(item, valor) {
+      const widget = item.closest('.diag-widget');
+      const selecionados = getDiagSelecionados(widget);
+      const idx = selecionados.indexOf(valor);
+      if (idx >= 0) selecionados.splice(idx, 1);
+      else selecionados.push(valor);
+      salvarDiag(widget, selecionados);
+      const busca = widget.querySelector('.diag-busca').value;
+      const filtrados = busca ? DIAGNOSTICOS.filter(d => d.toLowerCase().includes(busca.toLowerCase())) : DIAGNOSTICOS;
+      renderListaDiag(widget, filtrados);
+      renderTagsDiag(widget, selecionados);
+    }
+
+    function adicionarOutroDiag(btn) {
+      const widget = btn.closest('.diag-widget');
+      const input = widget.querySelector('.diag-outro');
+      const valor = input.value.trim();
+      if (!valor) return;
+      const selecionados = getDiagSelecionados(widget);
+      if (!selecionados.includes(valor)) {
+        selecionados.push(valor);
+        salvarDiag(widget, selecionados);
+        renderTagsDiag(widget, selecionados);
+      }
+      input.value = '';
+    }
+
+    function getDiagSelecionados(widget) {
+      const hidden = widget.querySelector('input[type=hidden]') || widget.previousElementSibling;
+      const bloco = widget.closest('.bloco-arvore');
+      const hidden2 = bloco ? bloco.querySelector('[data-field="diagnostico"]') : null;
+      const val = hidden2 ? hidden2.value : '';
+      return val ? val.split('||') : [];
+    }
+
+    function salvarDiag(widget, selecionados) {
+      const bloco = widget.closest('.bloco-arvore');
+      if (bloco) {
+        const h = bloco.querySelector('[data-field="diagnostico"]');
+        if (h) h.value = selecionados.join('||');
+      }
+    }
+
+    function renderTagsDiag(widget, selecionados) {
+      const cont = widget.querySelector('.diag-selecionados');
+      cont.innerHTML = selecionados.map(s =>
+        `<div class="diag-tag"><span>${s}</span><span class="diag-tag-remove" onclick="removerTagDiag(this, '${s.replace(/'/g,"\'")}')">×</span></div>`
+      ).join('');
+    }
+
+    function removerTagDiag(btn, valor) {
+      const widget = btn.closest('.diag-widget');
+      const selecionados = getDiagSelecionados(widget);
+      const idx = selecionados.indexOf(valor);
+      if (idx >= 0) selecionados.splice(idx, 1);
+      salvarDiag(widget, selecionados);
+      const busca = widget.querySelector('.diag-busca').value;
+      const filtrados = busca ? DIAGNOSTICOS.filter(d => d.toLowerCase().includes(busca.toLowerCase())) : DIAGNOSTICOS;
+      renderListaDiag(widget, filtrados);
+      renderTagsDiag(widget, selecionados);
+    }
+
+    function removerArvore(btn) {
+      if (confirm('Remover este item?')) {
+        btn.closest('.bloco-arvore').remove();
+        atualizarTitulosArvores();
+      }
+    }
+
+    function atualizarTitulosArvores() {
+      document.querySelectorAll('.bloco-arvore').forEach((bloco, index) => {
+        bloco.querySelector('span').innerText = `Árvore ${index + 1}`;
+      });
+      contadorArvores = document.querySelectorAll('.bloco-arvore').length;
+    }
+
+    function adicionarArvore() {
+      if(!servicoInput.value) return;
+      contadorArvores++;
+      const div = document.createElement('div');
+      div.className = 'bloco-arvore';
+      div.innerHTML = servicoInput.value === 'Plantio' ? blocoArvorePlantio(contadorArvores) : blocoArvorePadrao(contadorArvores);
+      arvoresContainer.appendChild(div);
+      // Inicializa widgets de diagnóstico no bloco recém-adicionado
+      div.querySelectorAll('.diag-widget').forEach(w => initDiagWidget(w));
+      div.querySelectorAll('.esp-widget').forEach(w => initEspWidget(w));
+    }
+
+    document.getElementById('dataForm').addEventListener('submit', e => {
+      e.preventDefault();
+      
+      const registro = {
+        relatorioNumero: relatorioNumeroInput.value,
+        referencia: document.getElementById('referencia').value,
+        numeroReferencia: document.getElementById('numeroReferencia').value,
+        endereco: { 
+          bairro: document.getElementById('bairro').value, 
+          rua: document.getElementById('rua').value, 
+          numero: document.getElementById('numeroEndereco').value 
+        },
+        localizacao: latitude && longitude ? { latitude, longitude } : null,
+        servico: servicoInput.value,
+        arvores: Array.from(document.querySelectorAll('.bloco-arvore')).map(b => {
+          const d = {};
+          b.querySelectorAll('[data-field]').forEach(f => {
+            if (f.dataset.field === 'diagnostico') {
+              d['diagnostico'] = f.value ? f.value.split('||') : [];
+            } else {
+              d[f.dataset.field] = f.value;
+            }
+          });
+          d['fotos'] = coletarFotosArvore(b);
+          return d;
+        }),
+        observacoes: document.getElementById('observacoes').value,
+        responsavelTecnico: responsavelInput.value,
+        dataRelatorio: document.getElementById('dataRelatorio').value,
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        registros.push(registro);
+        localStorage.setItem('registros', JSON.stringify(registros));
+        alert('Dados salvos com sucesso!');
+        location.reload();
+      } catch (err) {
+        alert('Erro: Memória cheia. Exclua registros antigos ou use fotos com menor resolução.');
+      }
+    });
+
+    relatorioNumeroInput.value = gerarNumeroRelatorio();
+    initMapa();
+
+    function limparFormulario() {
+      if (!confirm('Limpar todos os dados do formulário? O número do relatório não será consumido.')) return;
+
+      // Reseta referência
+      document.getElementById('referencia').value = '';
+      document.querySelectorAll('.btn-ref').forEach(b => b.classList.remove('active'));
+
+      // Reseta número referência
+      document.getElementById('numeroReferencia').value = '';
+
+      // Reseta endereço
+      document.getElementById('bairro').value = '';
+      document.getElementById('rua').value = '';
+      document.getElementById('numeroEndereco').value = '';
+
+      // Reseta GPS
+      latitude = null;
+      longitude = null;
+      mapaImagemBase64 = null;
+      _mapaCapturado = false;
+      coordsDiv.innerText = 'Aguardando captura de localização...';
+      if (marcador) { mapa.removeLayer(marcador); marcador = null; }
+      mapa.setView([-20.3155, -40.3128], 13);
+
+      // Reseta serviço
+      servicoInput.value = '';
+      document.querySelectorAll('.btn-servico').forEach(b => b.classList.remove('active'));
+      arvoresContainer.innerHTML = '';
+      contadorArvores = 0;
+
+      // Reseta fotos
+      for (let i = 0; i < 4; i++) {
+        const img = document.getElementById('preview-' + i);
+        if (img) { img.src = ''; img.style.display = 'none'; }
+      }
+      document.querySelectorAll('.grid-fotos input[type=file]').forEach(f => f.value = '');
+
+      // Reseta observações
+      document.getElementById('observacoes').value = '';
+
+      // Reseta data para hoje
+      document.getElementById('dataRelatorio').valueAsDate = new Date();
+
+      // IMPORTANTE: mantém o mesmo número de relatório — não avança
+      // O número só avança quando window.print() for chamado em gerarPDF()
+    }
+
+    // ===== GERAÇÃO DO RELATÓRIO PDF =====
+
+    function formatarData(dataStr) {
+      if (!dataStr) return '';
+      const [ano, mes, dia] = dataStr.split('-');
+      const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+      return `${dia} de ${meses[parseInt(mes)-1]} de ${ano}`;
+    }
+
+    function gerarMapaCanvas(lat, lon) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 560; canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#e8f5e9'; ctx.fillRect(0, 0, 560, 180);
+      ctx.strokeStyle = '#c8e6c9'; ctx.lineWidth = 1.5;
+      for (let x = 0; x < 560; x += 35) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,180); ctx.stroke(); }
+      for (let y = 0; y < 180; y += 35) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(560,y); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(280, 90, 36, 0, 2*Math.PI);
+      ctx.fillStyle = 'rgba(25,118,210,0.12)'; ctx.fill();
+      ctx.strokeStyle = '#1976d2'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(280, 80, 13, 0, 2*Math.PI);
+      ctx.fillStyle = '#c62828'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(273,91); ctx.lineTo(280,108); ctx.lineTo(287,91);
+      ctx.fillStyle = '#c62828'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(280,74); ctx.lineTo(280,86); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(274,80); ctx.lineTo(286,80); ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(4,4,238,20);
+      ctx.fillStyle = '#fff'; ctx.font = '11px monospace';
+      ctx.fillText('Lat: ' + lat.toFixed(6) + '  |  Long: ' + lon.toFixed(6), 10, 18);
+      return canvas.toDataURL('image/png');
+    }
+
+    function gerarPDF() {
+      // Coleta dados do formulário atual
+      const relNum = relatorioNumeroInput.value;
+      const ref = document.getElementById('referencia').value;
+      const numRef = document.getElementById('numeroReferencia').value;
+      const bairro = document.getElementById('bairro').value;
+      const rua = document.getElementById('rua').value;
+      const numEnd = document.getElementById('numeroEndereco').value;
+      const servico = servicoInput.value;
+      const obs = document.getElementById('observacoes').value;
+      const responsavel = responsavelInput.value;
+      const dataVistoria = document.getElementById('dataRelatorio').value;
+
+      if (!document.getElementById('referencia').value) {
+        alert('Selecione o tipo de Referência.');
+        return;
+      }
+      if (!bairro || !rua || !numEnd) {
+        alert('Preencha o endereço completo antes de gerar.');
+        return;
+      }
+      if (!servico) {
+        alert('Selecione o Serviço Principal.');
+        return;
+      }
+
+      // Coleta árvores (incluindo fotos de cada bloco)
+      const arvores = Array.from(document.querySelectorAll('.bloco-arvore')).map((b, i) => {
+        const d = { numero: i + 1 };
+        b.querySelectorAll('[data-field]').forEach(f => {
+          if (f.dataset.field === 'diagnostico') {
+            d['diagnostico'] = f.value ? f.value.split('||') : [];
+          } else {
+            d[f.dataset.field] = f.value;
+          }
+        });
+        d['fotos'] = coletarFotosArvore(b);
+        return d;
+      });
+
+      // Coleta fotos
+      const fotos = [];
+      for (let i = 0; i < 4; i++) {
+        const img = document.getElementById(`preview-${i}`);
+        if (img && img.src && img.style.display !== 'none') fotos.push(img.src);
+      }
+
+      const ehPlantio = servico === 'Plantio';
+
+      // Monta linhas da tabela — layout diferente para Plantio
+      const linhasTabela = ehPlantio
+        ? arvores.map(a => `
+            <tr>
+              <td>${a.numero}</td>
+              <td>${a.especie || '-'}</td>
+              <td>${a.quantidade || '1'}</td>
+              <td>${a.posicao || '-'}</td>
+              <td>${a.area_livre || '-'}</td>
+              <td>${a.largura_calcada ? a.largura_calcada + ' m' : '-'}</td>
+            </tr>`).join('')
+        : arvores.map(a => `
+            <tr>
+              <td>${a.numero}</td>
+              <td>${a.especie || '-'}</td>
+              <td>${a.quantidade || '1'}</td>
+              <td>${a.altura || '-'}</td>
+              <td>${a.cap || '-'}</td>
+              <td>${a.posicao || '-'}</td>
+            </tr>`).join('');
+
+      // Cabeçalho da tabela — diferente para Plantio
+      const cabecalhoTabela = ehPlantio
+        ? `<tr><th>#</th><th>Espécie Sugerida</th><th>Qtd</th><th>Posição</th><th>Área Livre</th><th>Larg. Calçada</th></tr>`
+        : `<tr><th>#</th><th>Espécie</th><th>Qtd</th><th>Alt. (m)</th><th>CAP (cm)</th><th>Posição</th></tr>`;
+
+      // Blocos abaixo da tabela — Obs. do Local para Plantio, Diagnóstico/Indicação para os demais
+      const blocosDiag = ehPlantio
+        ? arvores.map(a => {
+            if (!a.obs) return '';
+            return `
+              <div class="pdf-diag-item">
+                <div class="pdf-diag-titulo">Local ${a.numero}${a.especie ? ' — ' + a.especie : ''}</div>
+                <div>
+                  <span class="pdf-diag-label">Obs. do Local</span>
+                  <span class="pdf-diag-texto">${a.obs}</span>
+                </div>
+              </div>`;
+          }).join('')
+        : arvores.map(a => {
+            const temDiag = Array.isArray(a.diagnostico) ? a.diagnostico.length > 0 : !!a.diagnostico;
+            if (!temDiag && !a.indicacao) return '';
+            return `
+              <div class="pdf-diag-item">
+                <div class="pdf-diag-titulo">${ehPlantio ? 'Local' : 'Árvore'} ${a.numero}${a.especie ? ' — ' + a.especie : ''}</div>
+                <div class="pdf-diag-row">
+                  <div>
+                    <span class="pdf-diag-label">Diagnóstico</span>
+                    <span class="pdf-diag-texto">${Array.isArray(a.diagnostico) && a.diagnostico.length ? a.diagnostico.join(' • ') : (a.diagnostico || '-')}</span>
+                  </div>
+                  <div>
+                    <span class="pdf-diag-label">Indicação Técnica</span>
+                    <span class="pdf-indicacao-texto">${a.indicacao || '-'}</span>
+                  </div>
+                </div>
+                ${a.obs ? `<div style="margin-top:4px"><span class="pdf-diag-label">Obs. Específicas</span><span class="pdf-diag-texto">${a.obs}</span></div>` : ''}
+              </div>`;
+          }).join('');
+
+      // Monta bloco do mapa
+      const mapaHTML = latitude && longitude
+        ? `<img class="pdf-mapa-img" src="${gerarMapaCanvas(latitude, longitude)}" alt="Mapa da localização" />`
+        : `<div class="pdf-mapa-placeholder">Localização GPS não capturada</div>`;
+
+      // Monta grid de fotos por árvore (página 2)
+      const dataFormatada = formatarData(dataVistoria);
+      const enderecoResumo = `${bairro}, ${rua}, ${numEnd}`;
+
+      // Árvores que têm fotos
+      const arvoresComFotos = arvores.filter(a => a.fotos && a.fotos.length > 0);
+
+      // Monta grupos de fotos por árvore
+      function montarGrupoFoto(a) {
+        const diagTexto = Array.isArray(a.diagnostico) && a.diagnostico.length
+          ? a.diagnostico.join(' • ')
+          : (a.diagnostico || '');
+        const legenda = [a.especie, diagTexto].filter(Boolean).join(' — ');
+        const labelUnidade = ehPlantio ? 'Local' : 'Árvore';
+        return `<div class="pdf-grupo-arvore">
+          <div class="pdf-grupo-titulo">${labelUnidade} ${a.numero}${a.especie ? ' — ' + a.especie : ''}</div>
+          <div class="pdf-fotos-grid">
+            ${a.fotos.map((src, i) => `
+              <div class="pdf-foto-box">
+                <img src="${src}" alt="Foto ${i+1}" />
+              </div>`).join('')}
+          </div>
+          <div class="pdf-foto-legenda-par">${legenda || ''}</div>
+        </div>`;
+      }
+
+      // Gera páginas de fotos — 2 árvores por página
+      const ARVORES_POR_PAGINA_FOTO = 2;
+      let paginasFotosHTML = '';
+      const totalPaginasFotos = arvoresComFotos.length > 0
+        ? Math.ceil(arvoresComFotos.length / ARVORES_POR_PAGINA_FOTO)
+        : 1;
+      const totalPaginas = 1 + totalPaginasFotos;
+
+      if (arvoresComFotos.length === 0) {
+        // Sem fotos — gera 1 página vazia
+        paginasFotosHTML = `
+          <div class="pdf-pagina">
+            <div class="pdf-conteudo">
+              <div class="pdf-header2">
+                <span>Registro Fotográfico</span>
+                <small>Relatório Nº ${relNum}</small>
+              </div>
+              <div class="pdf-secao">
+                <div class="pdf-secao-titulo">5. Evidências Fotográficas</div>
+                <p style="font-size:11px;color:#888;padding:8px">Nenhuma foto registrada.</p>
+              </div>
+            </div>
+            <div class="pdf-footer">
+              <div class="pdf-footer-assinatura">
+                <div class="pdf-ass-esquerda">Vitória/ES, ${dataFormatada}</div>
+                <div class="pdf-ass-linha">${responsavel} — Responsável Técnico</div>
+              </div>
+              <span class="pdf-footer-pagina">Página 2 de 2</span>
+            </div>
+          </div>`;
+      } else {
+        for (let p = 0; p < totalPaginasFotos; p++) {
+          const inicio = p * ARVORES_POR_PAGINA_FOTO;
+          const grupo = arvoresComFotos.slice(inicio, inicio + ARVORES_POR_PAGINA_FOTO);
+          const numPagina = p + 2;
+          paginasFotosHTML += `
+            <div class="pdf-pagina">
+              <div class="pdf-conteudo">
+                <div class="pdf-header2">
+                  <span>Registro Fotográfico</span>
+                  <small>Relatório Nº ${relNum}</small>
+                </div>
+                <div class="pdf-secao">
+                  <div class="pdf-secao-titulo">5. Evidências Fotográficas</div>
+                  <div class="pdf-fotos-conteudo">
+                    ${grupo.map(a => montarGrupoFoto(a)).join('')}
+                  </div>
+                </div>
+              </div>
+              <div class="pdf-footer">
+                <div class="pdf-footer-assinatura">
+                  <div class="pdf-ass-esquerda">Vitória/ES, ${dataFormatada}</div>
+                  <div class="pdf-ass-linha">${responsavel} — Responsável Técnico</div>
+                </div>
+                <span class="pdf-footer-pagina">Página ${numPagina} de ${totalPaginas}</span>
+              </div>
+            </div>`;
+        }
+      }
+
+      // Monta HTML completo do relatório
+      const html = `
+        <!-- PÁGINA 1 -->
+        <div class="pdf-pagina">
+          <div class="pdf-conteudo">
+            <div class="pdf-header">
+              <div class="pdf-header-logo">
+                <svg width="38" height="38" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="19" cy="19" r="19" fill="#fff"/>
+                  <ellipse cx="19" cy="14" rx="9" ry="8" fill="#2e7d32"/>
+                  <ellipse cx="14" cy="17" rx="6" ry="5" fill="#388e3c"/>
+                  <ellipse cx="24" cy="17" rx="6" ry="5" fill="#388e3c"/>
+                  <rect x="17" y="22" width="4" height="8" rx="1" fill="#5d4037"/>
+                  <rect x="15" y="29" width="8" height="2" rx="1" fill="#5d4037"/>
+                </svg>
+              </div>
+              <div class="pdf-header-titulo">
+                <h1>Relatório Técnico de Vistoria</h1>
+                <p>Secretaria Municipal de Meio Ambiente · Gerência de Áreas Verdes</p>
+              </div>
+              <div class="pdf-header-meta">
+                <strong>Nº ${relNum}</strong><br>
+                Ref: ${ref} ${numRef}<br>
+                Data: ${dataVistoria ? new Date(dataVistoria + 'T12:00:00').toLocaleDateString('pt-BR') : ''}
+              </div>
+            </div>
+
+            <div class="pdf-secao">
+              <div class="pdf-secao-titulo">1. Identificação e Endereço</div>
+              <div class="pdf-ident-row1">
+                <div class="pdf-ident-cell">
+                  <div class="pdf-ident-label">Referência</div>
+                  <span class="pdf-badge-ref">${ref} ${numRef}</span>
+                </div>
+                <div class="pdf-ident-cell pdf-ident-sep">
+                  <div class="pdf-ident-label">Serviço Principal</div>
+                  <span class="pdf-badge-serv">${servico}</span>
+                </div>
+              </div>
+              <div class="pdf-ident-row2">
+                <div class="pdf-ident-cell">
+                  <div class="pdf-ident-label">Bairro</div>
+                  <div class="pdf-ident-valor">${bairro}</div>
+                </div>
+                <div class="pdf-ident-cell pdf-ident-sep">
+                  <div class="pdf-ident-label">Logradouro</div>
+                  <div class="pdf-ident-valor">${rua}</div>
+                </div>
+                <div class="pdf-ident-cell pdf-ident-sep">
+                  <div class="pdf-ident-label">Número</div>
+                  <div class="pdf-ident-valor">${numEnd}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pdf-secao">
+              <div class="pdf-secao-titulo">2. Localização GPS</div>
+              ${mapaHTML}
+            </div>
+
+            <div class="pdf-secao">
+              <div class="pdf-secao-titulo">3. ${ehPlantio ? 'Local Vistoriado' : 'Árvores Vistoriadas'}</div>
+              <table class="pdf-tabela">
+                <thead>${cabecalhoTabela}</thead>
+                <tbody>${linhasTabela}</tbody>
+              </table>
+              <div class="pdf-diag-bloco">${blocosDiag}</div>
+            </div>
+
+            ${obs ? `<div class="pdf-secao">
+              <div class="pdf-secao-titulo">4. Observações Gerais</div>
+              <p class="pdf-obs">${obs}</p>
+            </div>` : ''}
+          </div>
+
+          <div class="pdf-footer">
+            <div class="pdf-footer-assinatura">
+              <div class="pdf-ass-esquerda">Vitória/ES, ${dataFormatada}</div>
+              <div class="pdf-ass-linha">${responsavel} — Responsável Técnico</div>
+            </div>
+            <span class="pdf-footer-pagina">Página 1 de ${totalPaginas}</span>
+          </div>
+        </div>
+
+        ${paginasFotosHTML}`;
+
+      const container = document.getElementById('relatorio-pdf');
+      container.innerHTML = html;
+
+      // Usa imagem do mapa capturada no momento do GPS
+      if (mapaImagemBase64) {
+        const imgMapa = container.querySelector('.pdf-mapa-img');
+        if (imgMapa) imgMapa.src = mapaImagemBase64;
+      }
+
+      // Confirma número APENAS agora — quando o relatório for de fato gerado
+      confirmarNumeroRelatorio();
+
+      // Após fechar a janela de impressão, limpa o formulário e avança o número
+      window.onafterprint = function() {
+        window.onafterprint = null;
+        // Limpa sem pedir confirmação
+        document.getElementById('referencia').value = '';
+        document.querySelectorAll('.btn-ref').forEach(b => b.classList.remove('active'));
+        document.getElementById('numeroReferencia').value = '';
+        document.getElementById('bairro').value = '';
+        document.getElementById('rua').value = '';
+        document.getElementById('numeroEndereco').value = '';
+        latitude = null; longitude = null; mapaImagemBase64 = null; _mapaCapturado = false;
+        coordsDiv.innerText = 'Aguardando captura de localização...';
+        if (marcador) { mapa.removeLayer(marcador); marcador = null; }
+        mapa.setView([-20.3155, -40.3128], 13);
+        servicoInput.value = '';
+        document.querySelectorAll('.btn-servico').forEach(b => b.classList.remove('active'));
+        arvoresContainer.innerHTML = '';
+        contadorArvores = 0;
+        for (let i = 0; i < 4; i++) {
+          const img = document.getElementById('preview-' + i);
+          if (img) { img.src = ''; img.style.display = 'none'; }
+        }
+        document.querySelectorAll('.grid-fotos input[type=file]').forEach(f => f.value = '');
+        document.querySelectorAll('.foto-arvore-input').forEach(f => f.value = '');
+        document.querySelectorAll('.preview-arvore').forEach(img => { img.src=''; img.style.display='none'; });
+        document.querySelectorAll('.esp-selecionada-container').forEach(c => c.innerHTML = '');
+        document.getElementById('observacoes').value = '';
+        document.getElementById('dataRelatorio').valueAsDate = new Date();
+        document.getElementById('relatorio-pdf').innerHTML = '';
+        // Avança para o próximo número
+        relatorioNumeroInput.value = gerarNumeroRelatorio();
+      };
+
+      setTimeout(() => { window.print(); }, 400);
+    }
+  </script>
+</body>
+</html>
