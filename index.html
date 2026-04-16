@@ -13,21 +13,46 @@
   <script src="https://cdn.jsdelivr.net/npm/exif-js@2.3.0/exif.js"></script>
 
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; }
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 16px; }
     .container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-    h1 { margin-top: 0; color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 10px; }
-    h2 { margin-top: 0; font-size: 16px; background: #e8f5e9; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; color: #1b5e20; }
-    label { display: block; margin-top: 10px; font-weight: bold; color: #333; }
-    input, textarea, select { width: 100%; padding: 10px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    h1 { margin-top: 0; color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 10px; font-size: 22px; }
+    h2 { margin-top: 0; font-size: 15px; background: #e8f5e9; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; color: #1b5e20; }
+    label { display: block; margin-top: 10px; font-weight: bold; color: #333; font-size: 14px; }
+    input, textarea, select { width: 100%; padding: 10px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; /* evita zoom automático no iOS */ }
     input[readonly] { background: #eee; cursor: not-allowed; }
 
-    .grid-endereco { display: grid; grid-template-columns: 1fr 1fr 120px; gap: 12px; }
-    .grid-arvore { display: grid; grid-template-columns: 1fr 120px 1fr 120px 120px; gap: 12px; }
-    .grid-plantio { display: grid; grid-template-columns: 1fr 120px 1fr 200px; gap: 12px; }
+    .grid-endereco { display: grid; grid-template-columns: 1fr 1fr 100px; gap: 12px; }
+    .grid-arvore { display: grid; grid-template-columns: 90px 90px 90px; gap: 12px; }
+    .grid-plantio { display: grid; grid-template-columns: 90px 1fr 120px; gap: 12px; align-items: end; }
     .grid-responsavel { display: grid; grid-template-columns: 1fr 200px; gap: 12px; }
 
-    @media (max-width: 800px) {
-      .grid-endereco, .grid-arvore, .grid-plantio, .grid-responsavel { grid-template-columns: 1fr; }
+    /* Tablet (até 768px) */
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .container { padding: 14px; border-radius: 6px; }
+      h1 { font-size: 20px; }
+      .grid-endereco { grid-template-columns: 1fr 80px; }
+      .grid-endereco > div:first-child { grid-column: 1 / -1; }
+      .grid-responsavel { grid-template-columns: 1fr; }
+      .grid-arvore { grid-template-columns: 80px 80px 80px; }
+      .grid-plantio { grid-template-columns: 80px 1fr 100px; }
+      .btn-add { width: 100%; }
+    }
+
+    /* Smartphone (até 480px) */
+    @media (max-width: 480px) {
+      body { padding: 6px; }
+      .container { padding: 12px; border-radius: 4px; }
+      h1 { font-size: 18px; }
+      h2 { font-size: 14px; }
+      .grid-endereco, .grid-plantio, .grid-responsavel { grid-template-columns: 1fr; }
+      .grid-arvore { grid-template-columns: 1fr 1fr 1fr; }
+      .btn-group-ref { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+      .btn-group-servico { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+      .btn-posicao { font-size: 11px; padding: 7px 8px; }
+      .bloco-arvore { padding: 10px; }
+      #mapa { height: 220px; }
+      .btn-pdf, .btn-limpar { font-size: 15px; padding: 14px; }
     }
 
     .bloco-arvore { border: 1px solid #ddd; padding: 15px; margin-top: 20px; border-radius: 6px; background: #fafafa; position: relative; }
@@ -37,20 +62,24 @@
     .btn-primary { background: #1976d2; color: #fff; width: 100%; font-size: 16px; }
     .btn-primary:hover { background: #115293; }
     .btn-add { background: #2e7d32; color: #fff; }
-    .btn-gps { background: #455a64; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .btn-gps { background: #455a64; color: #fff; display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; }
 
-    #mapa { height: 300px; width: 100%; border-radius: 6px; border: 1px solid #ccc; margin-top: 10px; overflow: hidden; position: relative; z-index: 0; }
-    .coords { margin-top: 8px; font-size: 13px; font-family: monospace; color: #555; background: #eee; padding: 5px; border-radius: 4px; }
+    #mapa { height: 300px; width: 100%; border-radius: 6px; border: 1px solid #ccc; margin-top: 10px; position: relative; z-index: 0; box-sizing: border-box; }
+    .leaflet-container { touch-action: pan-x pan-y; }
+    .coords { margin-top: 8px; font-size: 13px; font-family: monospace; color: #555; background: #eee; padding: 5px; border-radius: 4px; word-break: break-all; }
 
     .grid-fotos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
     .grid-fotos-arvore { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
     .foto-item { display: flex; flex-direction: column; gap: 6px; background: #f9f9f9; padding: 8px; border: 1px dashed #bbb; border-radius: 4px; }
     .preview { width: 100%; height: 160px; object-fit: contain; background: #000; border: 1px solid #ccc; border-radius: 4px; display: none; }
-    @media (max-width: 600px) { .grid-fotos { grid-template-columns: 1fr; } }
+    @media (max-width: 480px) { .grid-fotos, .grid-fotos-arvore { grid-template-columns: 1fr; } }
 
     .btn-group-ref { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 8px; }
     .btn-ref { background: #fff; border: 2px solid #455a64; color: #455a64; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 4px; text-align: center; font-size: 14px; }
     .btn-ref.active { background: #455a64; color: #fff; }
+    .btn-group-posicao { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .btn-posicao { background: #fff; border: 2px solid #455a64; color: #455a64; padding: 6px 10px; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 12px; margin: 0; }
+    .btn-posicao.active { background: #455a64; color: #fff; }
     .btn-group-servico { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 8px; }
     .btn-servico { background: #fff; border: 2px solid #1976d2; color: #1976d2; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 4px; text-align: center; }
     .btn-servico.active { background: #1976d2; color: #fff; }
@@ -382,9 +411,12 @@
     }
 
     function initMapa() {
-      mapa = L.map('mapa').setView([-20.3155, -40.3128], 13);
+      mapa = L.map('mapa', { tap: false }).setView([-20.3155, -40.3128], 13);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(mapa);
-      setTimeout(() => { mapa.invalidateSize(); }, 200);
+      // Múltiplos invalidateSize para garantir renderização correta no mobile
+      [100, 300, 600, 1000].forEach(t => setTimeout(() => mapa.invalidateSize(), t));
+      // Recalcula tamanho ao redimensionar a janela (ex: teclado virtual no celular)
+      window.addEventListener('resize', () => mapa.invalidateSize());
     }
 
     function capturarLocalizacao() {
@@ -393,6 +425,8 @@
         latitude = pos.coords.latitude;
         longitude = pos.coords.longitude;
         coordsDiv.innerText = `Lat: ${latitude.toFixed(6)} | Long: ${longitude.toFixed(6)}`;
+        // Garante tamanho correto antes de posicionar o mapa
+        mapa.invalidateSize();
         mapa.setView([latitude, longitude], 18);
         if (!marcador) marcador = L.marker([latitude, longitude]).addTo(mapa);
         else marcador.setLatLng([latitude, longitude]);
@@ -417,19 +451,8 @@
       if (typeof leafletImage !== 'undefined') {
         leafletImage(mapa, function(err, canvas) {
           if (!err && canvas) {
-            // Desenha o marcador por cima manualmente
+            // Apenas adiciona as coordenadas (marcador azul do Leaflet já aparece na captura)
             const ctx = canvas.getContext('2d');
-            const ponto = mapa.latLngToContainerPoint([latitude, longitude]);
-            ctx.beginPath();
-            ctx.arc(ponto.x, ponto.y - 10, 10, 0, 2*Math.PI);
-            ctx.fillStyle = '#c62828'; ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(ponto.x-6, ponto.y);
-            ctx.lineTo(ponto.x, ponto.y+10);
-            ctx.lineTo(ponto.x+6, ponto.y);
-            ctx.fillStyle = '#c62828'; ctx.fill();
-            // Coordenadas
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
             ctx.fillRect(4, 4, 240, 22);
             ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
@@ -514,8 +537,21 @@
       adicionarArvore();
     }
 
+    const POSICOES = ['Calçada','Canteiro Central','Canteiro Lateral','Recanto','Rotatória/Trevo','Alameda','Orla'];
+
     function selectPosicao() {
-      return `<select data-field="posicao"><option value="">Selecione...</option><option>Calçada</option><option>Canteiro Central</option><option>Canteiro Lateral</option><option>Recanto</option><option>Rotatória/Trevo</option><option>Alameda</option><option>Orla</option></select>`;
+      const btns = POSICOES.map(p =>
+        `<div class="btn-posicao" onclick="selecionarPosicao('${p}', this)">${p}</div>`
+      ).join('');
+      return `<input type="hidden" data-field="posicao" /><div class="btn-group-posicao">${btns}</div>`;
+    }
+
+    function selecionarPosicao(valor, el) {
+      const grupo = el.closest('.btn-group-posicao');
+      grupo.querySelectorAll('.btn-posicao').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      const bloco = el.closest('.bloco-arvore');
+      if (bloco) bloco.querySelector('[data-field="posicao"]').value = valor;
     }
 
     function blocoArvorePadrao(numero) {
@@ -534,9 +570,9 @@
         <div class="grid-arvore">
           <div><label>Quantidade</label><input type="number" data-field="quantidade" value="1" /></div>
           <div><label>Altura (m)</label><input type="number" step="0.1" data-field="altura" /></div>
-          <div><label>Posição</label>${selectPosicao()}</div>
           <div><label>CAP (cm)</label><input type="number" data-field="cap" /></div>
         </div>
+        <label>Posição</label>${selectPosicao()}
         <label>Diagnóstico</label>
         <input type="hidden" data-field="diagnostico" />
         <div class="diag-widget">
@@ -580,10 +616,10 @@
         </div>
         <div class="grid-plantio">
           <div><label>Quantidade</label><input type="number" data-field="quantidade" value="1" /></div>
-          <div><label>Posição</label>${selectPosicao()}</div>
           <div><label>Área Livre</label><select data-field="area_livre"><option value="">Selecione...</option><option>Área pavimentada</option><option>Área livre aberta</option><option>Área não pavimentada</option></select></div>
           <div><label>Largura Calçada (m)</label><input type="number" step="0.1" data-field="largura_calcada" /></div>
         </div>
+        <label>Posição</label>${selectPosicao()}
         <label>Obs. do Local</label><textarea data-field="obs"></textarea>
         <label>Fotografias</label>
         <div class="grid-fotos-arvore">
@@ -1449,12 +1485,26 @@
           const diagTexto = Array.isArray(a.diagnostico) && a.diagnostico.length ? a.diagnostico.join(' • ') : (a.diagnostico || '');
           if (!diagTexto && !a.indicacao && !a.obs) return;
 
+          const LH10 = 5.2; // altura de linha para fontSize 10
+          const LH8  = 3.5; // altura de linha para fontSize 8
+          const PAD  = 2;   // padding interno
+
           const colW = (pW - 2*mX) / 2 - 3;
           const diagLines = diagTexto ? doc.splitTextToSize(diagTexto, colW) : [];
-          const indLines = a.indicacao ? doc.splitTextToSize(a.indicacao, colW) : [];
-          const obsLines = a.obs ? doc.splitTextToSize(a.obs, pW - 2*mX - 6) : [];
+          const indLines  = a.indicacao ? doc.splitTextToSize(a.indicacao, colW) : [];
+          const obsLines  = a.obs ? doc.splitTextToSize(a.obs, pW - 2*mX - 6) : [];
           const linhasDiagInd = Math.max(diagLines.length, indLines.length);
-          const alturaBloco = 8 + (linhasDiagInd * 5) + (obsLines.length * 5) + 6;
+
+          // Calcula altura real: título + cada seção com seus labels
+          let alturaBloco = PAD + LH10 + 2; // padding topo + título + espaço
+          if (diagTexto || a.indicacao) {
+            alturaBloco += LH8 + (linhasDiagInd * LH10) + 3; // label + linhas + espaço
+          }
+          if (a.obs) {
+            alturaBloco += LH8 + (obsLines.length * LH10) + 3; // label + linhas + espaço
+          }
+          alturaBloco += PAD; // padding base
+
           y = checkPagina(y, alturaBloco + 3);
 
           // Borda e fundo branco
@@ -1466,10 +1516,10 @@
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(10);
           doc.setTextColor(0, 0, 0);
-          doc.text((ehPlantio ? 'Local ' : 'Árvore ') + a.numero + (a.especie ? ' — ' + a.especie : ''), mX + 3, y + 6);
+          doc.text((ehPlantio ? 'Local ' : 'Árvore ') + a.numero + (a.especie ? ' — ' + a.especie : ''), mX + 3, y + PAD + LH10 - 1);
           doc.setFont('helvetica', 'normal');
 
-          let yBloco = y + 10;
+          let yBloco = y + PAD + LH10 + 4;
           const col2X = mX + 3 + (pW - 2*mX) / 2;
 
           // Labels cinza acima dos valores
@@ -1477,16 +1527,16 @@
             doc.setFontSize(8); doc.setTextColor(130, 130, 130);
             if (diagTexto) doc.text('Diagnóstico', mX + 3, yBloco);
             if (a.indicacao) doc.text('Indicação Técnica', col2X, yBloco);
-            yBloco += 4;
+            yBloco += LH8;
             doc.setFontSize(10); doc.setTextColor(0, 0, 0);
             if (diagTexto) doc.text(diagLines, mX + 3, yBloco);
             if (a.indicacao) doc.text(indLines, col2X, yBloco);
-            yBloco += linhasDiagInd * 5 + 2;
+            yBloco += linhasDiagInd * LH10 + 3;
           }
           if (a.obs) {
             doc.setFontSize(8); doc.setTextColor(130, 130, 130);
             doc.text(ehPlantio ? 'Obs. do Local' : 'Obs. Específicas', mX + 3, yBloco);
-            yBloco += 4;
+            yBloco += LH8;
             doc.setFontSize(10); doc.setTextColor(0, 0, 0);
             doc.text(obsLines, mX + 3, yBloco);
           }
