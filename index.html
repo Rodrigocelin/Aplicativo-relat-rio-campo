@@ -1395,56 +1395,64 @@
 
         // --- SEÇÃO 1: IDENTIFICAÇÃO ---
         y = addSecao('1. Identificação e Endereço', y);
-        y += 3;
+        y += 2;
 
-        // --- Linha 1: Referência | Serviço (com borda card) ---
-        const h1 = 14;
+        const totalW = pW - 2*mX;
+        const hCard = 12; // altura de cada linha
+
+        // --- Linha 1: Referência | Serviço | Bairro ---
+        const xA1 = mX;
+        const xA2 = mX + totalW * 0.28;
+        const xA3 = mX + totalW * 0.56;
+
         doc.setDrawColor(220, 220, 220);
         doc.setFillColor(255, 255, 255);
-        doc.rect(mX, y, pW - 2*mX, h1, 'FD');
-        // Linha divisória vertical
-        doc.line(pW/2, y, pW/2, y + h1);
-        // Labels
-        doc.setFontSize(8); doc.setTextColor(120, 120, 120); doc.setFont('helvetica', 'normal');
-        doc.text('REFERÊNCIA', mX + 2, y + 4);
-        doc.text('SERVIÇO PRINCIPAL', pW/2 + 2, y + 4);
-        // Valores bold
-        doc.setFontSize(11); doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold');
-        doc.text(ref + ' ' + numRef, mX + 2, y + 11);
-        doc.text(servico, pW/2 + 2, y + 11);
-        doc.setFont('helvetica', 'normal');
-        y += h1 + 3;
+        doc.rect(mX, y, totalW, hCard, 'FD');
+        doc.line(xA2, y, xA2, y + hCard);
+        doc.line(xA3, y, xA3, y + hCard);
 
-        // --- Linha 2: Bairro | Logradouro | Número (com borda card) ---
-        const h2 = 14;
+        // hCard=12mm, centralizado: espaço igual topo e base
+        const yLabel = 3.5;   // baseline do label pequeno
+        const yValor = 8.5;   // baseline do valor bold
+
+        doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.setFont('helvetica', 'normal');
+        doc.text('REFERÊNCIA', xA1 + 2, y + yLabel);
+        doc.text('SERVIÇO',    xA2 + 2, y + yLabel);
+        doc.text('BAIRRO',     xA3 + 2, y + yLabel);
+
+        doc.setFontSize(9); doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold');
+        doc.text(doc.splitTextToSize(ref + ' ' + numRef, totalW * 0.27)[0], xA1 + 2, y + yValor);
+        doc.text(doc.splitTextToSize(servico,            totalW * 0.27)[0], xA2 + 2, y + yValor);
+        doc.text(doc.splitTextToSize(bairro,             totalW * 0.43)[0], xA3 + 2, y + yValor);
+        doc.setFont('helvetica', 'normal');
+        y += hCard + 2;
+
+        // --- Linha 2: Logradouro | Número ---
+        const xB2 = mX + totalW * 0.82;
+
         doc.setDrawColor(220, 220, 220);
         doc.setFillColor(255, 255, 255);
-        doc.rect(mX, y, pW - 2*mX, h2, 'FD');
-        // Linhas divisórias verticais
-        doc.line(pW * 0.35, y, pW * 0.35, y + h2);
-        doc.line(pW * 0.82, y, pW * 0.82, y + h2);
-        // Labels
-        doc.setFontSize(8); doc.setTextColor(120, 120, 120); doc.setFont('helvetica', 'normal');
-        doc.text('BAIRRO', mX + 2, y + 4);
-        doc.text('LOGRADOURO', pW * 0.35 + 2, y + 4);
-        doc.text('NÚMERO', pW * 0.82 + 2, y + 4);
-        // Valores bold
-        doc.setFontSize(11); doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold');
-        doc.text(bairro, mX + 2, y + 11);
-        const ruaTrunc = doc.splitTextToSize(rua, pW * 0.44)[0];
-        doc.text(ruaTrunc, pW * 0.35 + 2, y + 11);
-        doc.text(numEnd, pW * 0.82 + 2, y + 11);
+        doc.rect(mX, y, totalW, hCard, 'FD');
+        doc.line(xB2, y, xB2, y + hCard);
+
+        doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.setFont('helvetica', 'normal');
+        doc.text('LOGRADOURO', mX + 2, y + yLabel);
+        doc.text('NÚMERO',     xB2 + 2, y + yLabel);
+
+        doc.setFontSize(9); doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold');
+        doc.text(doc.splitTextToSize(rua,    totalW * 0.81)[0], mX + 2, y + yValor);
+        doc.text(doc.splitTextToSize(numEnd, totalW * 0.17)[0], xB2 + 2, y + yValor);
         doc.setFont('helvetica', 'normal');
-        y += h2 + 5;
+        y += hCard + 3;
 
         // --- SEÇÃO 2: GPS ---
         y = addSecao('2. Localização GPS', y);
         if (mapaImagemBase64) {
           const mW = pW - 2 * mX;
-          const mH = 62;
+          const mH = 55;
           y = checkPagina(y, mH + 4);
           doc.addImage(mapaImagemBase64, 'PNG', mX, y, mW, mH);
-          y += mH + 5;
+          y += mH + 3;
         } else {
           doc.setFillColor(240, 240, 240);
           doc.rect(mX, y, pW - 2*mX, 12, 'F');
@@ -1472,38 +1480,59 @@
           head: cabTabela,
           body: linhasTabela2,
           theme: 'grid',
-          styles: { fontSize: 10, cellPadding: 3, textColor: [0,0,0] },
+          styles: { fontSize: 9, cellPadding: 2, textColor: [0,0,0] },
           headStyles: { fillColor: corVerde, textColor: corBranco, fontStyle: 'bold', fontSize: 9 },
           alternateRowStyles: { fillColor: [250, 250, 250] },
           margin: { left: mX, right: mX },
           didDrawPage: () => {}
         });
-        y = doc.autoTable.previous.finalY + 5;
+        y = doc.autoTable.previous.finalY + 3;
 
-        // Diagnóstico por árvore — igual ao layout aprovado
+        // Função auxiliar: quebra texto palavra por palavra garantindo que caiba na largura
+        function quebrarTexto(doc, texto, maxW, fontSize) {
+          doc.setFontSize(fontSize);
+          const palavras = texto.split(' ');
+          const linhas = [];
+          let atual = '';
+          for (const palavra of palavras) {
+            const teste = atual ? atual + ' ' + palavra : palavra;
+            if (doc.getTextWidth(teste) <= maxW) {
+              atual = teste;
+            } else {
+              if (atual) linhas.push(atual);
+              // palavra sozinha maior que largura? força inclusão assim mesmo
+              atual = palavra;
+            }
+          }
+          if (atual) linhas.push(atual);
+          return linhas;
+        }
+
+        // Diagnóstico por árvore
         arvores.forEach(a => {
           const diagTexto = Array.isArray(a.diagnostico) && a.diagnostico.length ? a.diagnostico.join(' • ') : (a.diagnostico || '');
           if (!diagTexto && !a.indicacao && !a.obs) return;
 
-          const LH10 = 5.2; // altura de linha para fontSize 10
-          const LH8  = 3.5; // altura de linha para fontSize 8
-          const PAD  = 2;   // padding interno
+          const PAD  = 2;
+          const colX = mX + 3;
+          const maxW = pW - 2*mX - 8; // margem segura
 
-          const colW = (pW - 2*mX) / 2 - 3;
-          const diagLines = diagTexto ? doc.splitTextToSize(diagTexto, colW) : [];
-          const indLines  = a.indicacao ? doc.splitTextToSize(a.indicacao, colW) : [];
-          const obsLines  = a.obs ? doc.splitTextToSize(a.obs, pW - 2*mX - 6) : [];
-          const linhasDiagInd = Math.max(diagLines.length, indLines.length);
+          // Altura de linha real: fontSize * lineHeightFactor(1.15) / scaleFactor(pt->mm)
+          const _sf  = doc.internal.scaleFactor; // ~2.8346 para mm
+          const LH10 = 10 * 1.15 / _sf; // ~4.06mm
+          const LH8  =  8 * 1.15 / _sf; // ~3.25mm
+          doc.setFont('helvetica', 'normal');
 
-          // Calcula altura real: título + cada seção com seus labels
-          let alturaBloco = PAD + LH10 + 2; // padding topo + título + espaço
-          if (diagTexto || a.indicacao) {
-            alturaBloco += LH8 + (linhasDiagInd * LH10) + 3; // label + linhas + espaço
-          }
-          if (a.obs) {
-            alturaBloco += LH8 + (obsLines.length * LH10) + 3; // label + linhas + espaço
-          }
-          alturaBloco += PAD; // padding base
+          const diagLines = diagTexto   ? quebrarTexto(doc, diagTexto,   maxW, 10) : [];
+          const indLines  = a.indicacao ? quebrarTexto(doc, a.indicacao, maxW, 10) : [];
+          const obsLines  = a.obs       ? quebrarTexto(doc, a.obs,       maxW, 10) : [];
+
+          // Altura exata do bloco
+          let alturaBloco = PAD + LH10 + 2;
+          if (diagTexto)   alturaBloco += LH8 + diagLines.length * LH10 + 2;
+          if (a.indicacao) alturaBloco += LH8 + indLines.length  * LH10 + 2;
+          if (a.obs)       alturaBloco += LH8 + obsLines.length  * LH10 + 2;
+          alturaBloco += PAD;
 
           y = checkPagina(y, alturaBloco + 3);
 
@@ -1516,30 +1545,40 @@
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(10);
           doc.setTextColor(0, 0, 0);
-          doc.text((ehPlantio ? 'Local ' : 'Árvore ') + a.numero + (a.especie ? ' — ' + a.especie : ''), mX + 3, y + PAD + LH10 - 1);
+          doc.text((ehPlantio ? 'Local ' : 'Árvore ') + a.numero + (a.especie ? ' — ' + a.especie : ''), colX, y + PAD + LH10 - 1);
           doc.setFont('helvetica', 'normal');
 
           let yBloco = y + PAD + LH10 + 4;
-          const col2X = mX + 3 + (pW - 2*mX) / 2;
 
-          // Labels cinza acima dos valores
-          if (diagTexto || a.indicacao) {
+          // Diagnóstico
+          if (diagTexto) {
             doc.setFontSize(8); doc.setTextColor(130, 130, 130);
-            if (diagTexto) doc.text('Diagnóstico', mX + 3, yBloco);
-            if (a.indicacao) doc.text('Indicação Técnica', col2X, yBloco);
+            doc.text('Diagnóstico', colX, yBloco);
             yBloco += LH8;
             doc.setFontSize(10); doc.setTextColor(0, 0, 0);
-            if (diagTexto) doc.text(diagLines, mX + 3, yBloco);
-            if (a.indicacao) doc.text(indLines, col2X, yBloco);
-            yBloco += linhasDiagInd * LH10 + 3;
+            diagLines.forEach(linha => { doc.text(linha, colX, yBloco); yBloco += LH10; });
+            yBloco += 2;
           }
+
+          // Indicação Técnica
+          if (a.indicacao) {
+            doc.setFontSize(8); doc.setTextColor(130, 130, 130);
+            doc.text('Indicação Técnica', colX, yBloco);
+            yBloco += LH8;
+            doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+            indLines.forEach(linha => { doc.text(linha, colX, yBloco); yBloco += LH10; });
+            yBloco += 2;
+          }
+
+          // Obs. Específicas
           if (a.obs) {
             doc.setFontSize(8); doc.setTextColor(130, 130, 130);
-            doc.text(ehPlantio ? 'Obs. do Local' : 'Obs. Específicas', mX + 3, yBloco);
+            doc.text(ehPlantio ? 'Obs. do Local' : 'Obs. Específicas', colX, yBloco);
             yBloco += LH8;
             doc.setFontSize(10); doc.setTextColor(0, 0, 0);
-            doc.text(obsLines, mX + 3, yBloco);
+            obsLines.forEach(linha => { doc.text(linha, colX, yBloco); yBloco += LH10; });
           }
+
           y += alturaBloco + 3;
         });
 
