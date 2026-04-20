@@ -447,17 +447,31 @@
       _mapaCapturado = true;
       setTimeout(() => { _mapaCapturado = false; }, 5000);
 
-      // Usa leaflet-image para capturar tiles (biblioteca leve que contorna CORS)
+      // Usa leaflet-image para capturar tiles
       if (typeof leafletImage !== 'undefined') {
         leafletImage(mapa, function(err, canvas) {
           if (!err && canvas) {
-            // Apenas adiciona as coordenadas (marcador azul do Leaflet já aparece na captura)
-            const ctx = canvas.getContext('2d');
+            // Redimensiona para proporção fixa do PDF (180x55mm → ~3.27:1)
+            // Usa largura fixa de 900px para boa resolução
+            const PDF_W = 900;
+            const PDF_H = Math.round(900 * 55 / 180); // ~275px
+
+            const saida = document.createElement('canvas');
+            saida.width  = PDF_W;
+            saida.height = PDF_H;
+            const ctx = saida.getContext('2d');
+
+            // Desenha o mapa original esticado para a proporção correta
+            ctx.drawImage(canvas, 0, 0, PDF_W, PDF_H);
+
+            // Coordenadas no canto superior esquerdo
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(4, 4, 240, 22);
-            ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
-            ctx.fillText('Lat: ' + latitude.toFixed(6) + '  Long: ' + longitude.toFixed(6), 8, 20);
-            mapaImagemBase64 = canvas.toDataURL('image/png');
+            ctx.fillRect(4, 4, 310, 26);
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px monospace';
+            ctx.fillText('Lat: ' + latitude.toFixed(6) + '  Long: ' + longitude.toFixed(6), 8, 22);
+
+            mapaImagemBase64 = saida.toDataURL('image/png');
           }
         });
       }
