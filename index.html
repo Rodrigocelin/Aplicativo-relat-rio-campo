@@ -451,20 +451,39 @@
       if (typeof leafletImage !== 'undefined') {
         leafletImage(mapa, function(err, canvas) {
           if (!err && canvas) {
-            // Redimensiona para proporção fixa do PDF (180x55mm → ~3.27:1)
-            // Usa largura fixa de 900px para boa resolução
-            const PDF_W = 900;
-            const PDF_H = Math.round(900 * 55 / 180); // ~275px
+            // Proporção alvo do PDF: 180mm × 55mm = 3.2727:1
+            const RATIO = 180 / 55;
+            const srcW = canvas.width;
+            const srcH = canvas.height;
 
+            // Calcula área de corte centralizada mantendo proporção do PDF
+            let cropW, cropH, cropX, cropY;
+            if (srcW / srcH > RATIO) {
+              // canvas mais largo que o alvo: corta laterais
+              cropH = srcH;
+              cropW = Math.round(srcH * RATIO);
+              cropX = Math.round((srcW - cropW) / 2);
+              cropY = 0;
+            } else {
+              // canvas mais alto que o alvo: corta topo/base
+              cropW = srcW;
+              cropH = Math.round(srcW / RATIO);
+              cropX = 0;
+              cropY = Math.round((srcH - cropH) / 2);
+            }
+
+            // Canvas de saída com resolução alta
+            const OUT_W = 900;
+            const OUT_H = Math.round(OUT_W / RATIO); // 275px
             const saida = document.createElement('canvas');
-            saida.width  = PDF_W;
-            saida.height = PDF_H;
+            saida.width  = OUT_W;
+            saida.height = OUT_H;
             const ctx = saida.getContext('2d');
 
-            // Desenha o mapa original esticado para a proporção correta
-            ctx.drawImage(canvas, 0, 0, PDF_W, PDF_H);
+            // Recorta e redimensiona sem distorção
+            ctx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, OUT_W, OUT_H);
 
-            // Coordenadas no canto superior esquerdo
+            // Coordenadas
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
             ctx.fillRect(4, 4, 310, 26);
             ctx.fillStyle = '#fff';
