@@ -430,12 +430,28 @@
         mapa.setView([latitude, longitude], 18);
         if (!marcador) marcador = L.marker([latitude, longitude]).addTo(mapa);
         else marcador.setLatLng([latitude, longitude]);
-        // Aguarda tiles carregarem e captura o mapa como imagem
+
+        // Recua para zoom 16 para capturar com contexto de rua visível
+        // depois volta para 18 para exibição ao usuário
         mapa.once('idle', function() {
-          capturarImagemMapa();
+          mapa.setZoom(16, { animate: false });
+          mapa.once('idle', function() {
+            capturarImagemMapa();
+            // Volta zoom para o usuário após captura
+            setTimeout(() => mapa.setZoom(18, { animate: true }), 500);
+          });
+          setTimeout(() => {
+            capturarImagemMapa();
+            setTimeout(() => mapa.setZoom(18, { animate: true }), 500);
+          }, 2000);
         });
-        // Fallback: captura após 3s mesmo sem evento idle
-        setTimeout(capturarImagemMapa, 3000);
+        // Fallback
+        setTimeout(() => {
+          if (!_mapaCapturado) {
+            mapa.setZoom(16, { animate: false });
+            setTimeout(capturarImagemMapa, 800);
+          }
+        }, 4000);
       }, error => {
         alert('Erro ao obter localização. Verifique o GPS.');
       });
