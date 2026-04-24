@@ -434,7 +434,7 @@
         // Recua para zoom 16 para capturar com contexto de rua visível
         // depois volta para 18 para exibição ao usuário
         mapa.once('idle', function() {
-          mapa.setZoom(16, { animate: false });
+          mapa.setZoom(17, { animate: false });
           mapa.once('idle', function() {
             capturarImagemMapa();
             // Volta zoom para o usuário após captura
@@ -448,7 +448,7 @@
         // Fallback
         setTimeout(() => {
           if (!_mapaCapturado) {
-            mapa.setZoom(16, { animate: false });
+            mapa.setZoom(17, { animate: false });
             setTimeout(capturarImagemMapa, 800);
           }
         }, 4000);
