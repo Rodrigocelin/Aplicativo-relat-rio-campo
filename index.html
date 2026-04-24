@@ -465,47 +465,25 @@
 
       if (typeof leafletImage === 'undefined') return;
 
-      leafletImage(mapa, function(err, canvas) {
-        if (!err && canvas) {
-          const RATIO = 180 / 55; // proporção alvo do PDF
-          const srcW = canvas.width;
-          const srcH = canvas.height;
+      // Força tamanho fixo do mapa antes de capturar: 720×220px (proporção 180:55)
+      const mapaEl = document.getElementById('mapa');
+      mapaEl.style.width  = '720px';
+      mapaEl.style.height = '220px';
+      mapa.invalidateSize();
 
-          // Corte centralizado mantendo proporção exata
-          let cropW, cropH, cropX, cropY;
-          if (srcW / srcH > RATIO) {
-            cropH = srcH;
-            cropW = Math.round(srcH * RATIO);
-            cropX = Math.round((srcW - cropW) / 2);
-            cropY = 0;
-          } else {
-            cropW = srcW;
-            cropH = Math.round(srcW / RATIO);
-            cropX = 0;
-            cropY = Math.round((srcH - cropH) / 2);
+      // Aguarda tiles carregarem no novo tamanho
+      setTimeout(() => {
+        leafletImage(mapa, function(err, canvas) {
+          // Restaura tamanho responsivo
+          mapaEl.style.width  = '';
+          mapaEl.style.height = '';
+          mapa.invalidateSize();
+
+          if (!err && canvas) {
+            mapaImagemBase64 = canvas.toDataURL('image/jpeg', 0.92);
           }
-
-          // Saída: usa o tamanho real do canvas (sem ampliar = sem embaçar)
-          const saida = document.createElement('canvas');
-          saida.width  = cropW;
-          saida.height = cropH;
-          const ctx = saida.getContext('2d');
-          ctx.imageSmoothingEnabled = false; // nenhum redimensionamento = máxima nitidez
-          ctx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-
-          // Coordenadas proporcionais ao tamanho real
-          const fs = Math.max(11, Math.round(cropH * 0.05));
-          const bw = Math.round(cropW * 0.38);
-          const bh = Math.round(fs * 1.8);
-          ctx.fillStyle = 'rgba(0,0,0,0.65)';
-          ctx.fillRect(4, 4, bw, bh);
-          ctx.fillStyle = '#fff';
-          ctx.font = `bold ${fs}px monospace`;
-          ctx.fillText('Lat: ' + latitude.toFixed(6) + '  Long: ' + longitude.toFixed(6), 8, 4 + bh * 0.75);
-
-          mapaImagemBase64 = saida.toDataURL('image/jpeg', 0.92);
-        }
-      });
+        });
+      }, 1200);
     }
 
     function previewFoto(input, index) {
@@ -1496,7 +1474,7 @@
           const mW = pW - 2 * mX;
           const mH = 55;
           y = checkPagina(y, mH + 4);
-          doc.addImage(mapaImagemBase64, 'PNG', mX, y, mW, mH);
+          doc.addImage(mapaImagemBase64, 'JPEG', mX, y, mW, mH);
           y += mH + 3;
         } else {
           doc.setFillColor(240, 240, 240);
