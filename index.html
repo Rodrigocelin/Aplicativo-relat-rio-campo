@@ -463,53 +463,49 @@
       _mapaCapturado = true;
       setTimeout(() => { _mapaCapturado = false; }, 5000);
 
-      // Usa leaflet-image para capturar tiles
-      if (typeof leafletImage !== 'undefined') {
-        leafletImage(mapa, function(err, canvas) {
-          if (!err && canvas) {
-            // Proporção alvo do PDF: 180mm × 55mm = 3.2727:1
-            const RATIO = 180 / 55;
-            const srcW = canvas.width;
-            const srcH = canvas.height;
+      if (typeof leafletImage === 'undefined') return;
 
-            // Calcula área de corte centralizada mantendo proporção do PDF
-            let cropW, cropH, cropX, cropY;
-            if (srcW / srcH > RATIO) {
-              // canvas mais largo que o alvo: corta laterais
-              cropH = srcH;
-              cropW = Math.round(srcH * RATIO);
-              cropX = Math.round((srcW - cropW) / 2);
-              cropY = 0;
-            } else {
-              // canvas mais alto que o alvo: corta topo/base
-              cropW = srcW;
-              cropH = Math.round(srcW / RATIO);
-              cropX = 0;
-              cropY = Math.round((srcH - cropH) / 2);
-            }
+      leafletImage(mapa, function(err, canvas) {
+        if (!err && canvas) {
+          const RATIO = 180 / 55; // proporção alvo do PDF
+          const srcW = canvas.width;
+          const srcH = canvas.height;
 
-            // Canvas de saída com resolução alta
-            const OUT_W = 900;
-            const OUT_H = Math.round(OUT_W / RATIO); // 275px
-            const saida = document.createElement('canvas');
-            saida.width  = OUT_W;
-            saida.height = OUT_H;
-            const ctx = saida.getContext('2d');
-
-            // Recorta e redimensiona sem distorção
-            ctx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, OUT_W, OUT_H);
-
-            // Coordenadas
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(4, 4, 310, 26);
-            ctx.fillStyle = '#fff';
-            ctx.font = '14px monospace';
-            ctx.fillText('Lat: ' + latitude.toFixed(6) + '  Long: ' + longitude.toFixed(6), 8, 22);
-
-            mapaImagemBase64 = saida.toDataURL('image/png');
+          // Corte centralizado mantendo proporção exata
+          let cropW, cropH, cropX, cropY;
+          if (srcW / srcH > RATIO) {
+            cropH = srcH;
+            cropW = Math.round(srcH * RATIO);
+            cropX = Math.round((srcW - cropW) / 2);
+            cropY = 0;
+          } else {
+            cropW = srcW;
+            cropH = Math.round(srcW / RATIO);
+            cropX = 0;
+            cropY = Math.round((srcH - cropH) / 2);
           }
-        });
-      }
+
+          // Saída: usa o tamanho real do canvas (sem ampliar = sem embaçar)
+          const saida = document.createElement('canvas');
+          saida.width  = cropW;
+          saida.height = cropH;
+          const ctx = saida.getContext('2d');
+          ctx.imageSmoothingEnabled = false; // nenhum redimensionamento = máxima nitidez
+          ctx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+          // Coordenadas proporcionais ao tamanho real
+          const fs = Math.max(11, Math.round(cropH * 0.05));
+          const bw = Math.round(cropW * 0.38);
+          const bh = Math.round(fs * 1.8);
+          ctx.fillStyle = 'rgba(0,0,0,0.65)';
+          ctx.fillRect(4, 4, bw, bh);
+          ctx.fillStyle = '#fff';
+          ctx.font = `bold ${fs}px monospace`;
+          ctx.fillText('Lat: ' + latitude.toFixed(6) + '  Long: ' + longitude.toFixed(6), 8, 4 + bh * 0.75);
+
+          mapaImagemBase64 = saida.toDataURL('image/jpeg', 0.92);
+        }
+      });
     }
 
     function previewFoto(input, index) {
