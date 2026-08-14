@@ -23,6 +23,7 @@
 
     .grid-endereco { display: grid; grid-template-columns: 1fr 1fr 100px; gap: 12px; }
     .grid-arvore { display: grid; grid-template-columns: 90px 90px 90px; gap: 12px; }
+    .grid-enq { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .grid-plantio { display: grid; grid-template-columns: 90px 1fr 120px; gap: 12px; align-items: end; }
     .grid-responsavel { display: grid; grid-template-columns: 1fr 200px; gap: 12px; }
 
@@ -35,6 +36,7 @@
       .grid-endereco > div:first-child { grid-column: 1 / -1; }
       .grid-responsavel { grid-template-columns: 1fr; }
       .grid-arvore { grid-template-columns: 80px 80px 80px; }
+      .grid-enq { grid-template-columns: 1fr 1fr; }
       .grid-plantio { grid-template-columns: 80px 1fr 100px; }
       .btn-add { width: 100%; }
     }
@@ -560,42 +562,229 @@
       adicionarArvore();
     }
 
-    const POSICOES = ['Calçada','Canteiro Central','Canteiro Lateral','Recanto','Rotatória/Trevo','Alameda','Orla'];
+    const POSICOES = ['Calçada','Canteiro Central','Canteiro Lateral','Recanto','Rotatória/Trevo','Alameda','Orla','Praça','Área ajardinada/Parque/Reflorestamento'];
 
-    function selectPosicao() {
+    // ===== ENQUADRAMENTO DE ORDEM DE SERVIÇO =====
+    const TIPOS_LOCAL_RETIRADA = ['Área Pavimentada','Canteiro Central/Praça','Reflorestamento/Parque'];
+    const SITUACOES_ESPECIAIS = ['Nenhuma','Domingo/Feriado','Emergencial/Noturno','Área de Risco'];
+
+    const RETIRADA_ENQ_OPCOES = [
+      { valor: 'Retirada Tipo 1',  label: 'Tipo 1 — Pequeno porte (<2,0m) — Pavimentada' },
+      { valor: 'Retirada Tipo 2',  label: 'Tipo 2 — Pequeno porte (<2,0m) — Canteiro/Praça' },
+      { valor: 'Retirada Tipo 3',  label: 'Tipo 3 — Pequeno porte (<2,0m) — Reflorestamento/Parque' },
+      { valor: 'Retirada Tipo 4',  label: 'Tipo 4 — Pequeno porte (2,0-4,0m) — Pavimentada' },
+      { valor: 'Retirada Tipo 5',  label: 'Tipo 5 — Pequeno porte (2,0-4,0m) — Canteiro/Praça' },
+      { valor: 'Retirada Tipo 6',  label: 'Tipo 6 — Pequeno porte (2,0-4,0m) — Reflorestamento/Parque' },
+      { valor: 'Retirada Tipo 7',  label: 'Tipo 7 — Médio porte (4,0-8,0m) — Pavimentada' },
+      { valor: 'Retirada Tipo 8',  label: 'Tipo 8 — Médio porte (4,0-8,0m) — Canteiro/Praça' },
+      { valor: 'Retirada Tipo 9',  label: 'Tipo 9 — Médio porte (4,0-8,0m) — Reflorestamento/Parque' },
+      { valor: 'Retirada Tipo 10', label: 'Tipo 10 — Grande porte (>8,0m) — Pavimentada' },
+      { valor: 'Retirada Tipo 11', label: 'Tipo 11 — Grande porte (>8,0m) — Canteiro/Praça' },
+      { valor: 'Retirada Tipo 12', label: 'Tipo 12 — Grande porte (>8,0m) — Reflorestamento/Parque' },
+      { valor: 'Retirada Tipo 13', label: 'Tipo 13 — Domingo/Feriado' },
+      { valor: 'Retirada Tipo 14', label: 'Tipo 14 — Emergencial/Noturno' },
+      { valor: 'Retirada Tipo 15', label: 'Tipo 15 — Área de Risco' }
+    ];
+
+    const PLANTIO_ENQ_OPCOES = [
+      { valor: 'Plantio Tipo 1', label: 'Tipo 1 — Mudas pequenas (1,8-3,9m) — Pavimentada' },
+      { valor: 'Plantio Tipo 2', label: 'Tipo 2 — Mudas pequenas (1,8-3,9m) — Não pavimentada' },
+      { valor: 'Plantio Tipo 3', label: 'Tipo 3 — Mudas pequenas (<1,5m) — Ajardinada/Parque/Reflorestamento' },
+      { valor: 'Plantio Tipo 4', label: 'Tipo 4 — Mudas grandes (>4,0m)' },
+      { valor: 'Plantio Tipo 5', label: 'Tipo 5 — Replantio' }
+    ];
+
+    const FAIXAS_ALTURA_PLANTIO = [
+      { valor: 'muito_pequena', label: 'Muito pequena — até 1,5 m' },
+      { valor: 'pequena',       label: 'Pequena — 1,8 a 3,9 m' },
+      { valor: 'grande',        label: 'Grande — acima de 4,0 m' }
+    ];
+
+    const AREA_LIVRE_ENQ_OPCOES = [
+      { valor: 'Área Livre Tipo 1', label: 'Tipo 1 — Considerando todo o serviço' },
+      { valor: 'Área Livre Tipo 2', label: 'Tipo 2 — Sem execução de calçamento' }
+    ];
+
+    function selectEnquadramento(opcoes, fieldName) {
+      fieldName = fieldName || 'enquadramento';
+      return `<select data-field="${fieldName}" onchange="marcarEnquadramentoManual(this)"><option value="">Selecione...</option>${
+        opcoes.map(o => `<option value="${o.valor}">${o.label}</option>`).join('')
+      }</select>`;
+    }
+
+    function marcarEnquadramentoManual(el) {
+      // Marca que o usuário ajustou manualmente, para não sermos "grosseiros" sobrescrevendo sem necessidade.
+      el.dataset.manual = '1';
+    }
+
+    function calcularEnquadramentoRetirada(altura, tipoLocal, situacao) {
+      if (situacao === 'Domingo/Feriado') return 'Retirada Tipo 13';
+      if (situacao === 'Emergencial/Noturno') return 'Retirada Tipo 14';
+      if (situacao === 'Área de Risco') return 'Retirada Tipo 15';
+      const h = parseFloat(altura);
+      if (isNaN(h) || !tipoLocal) return '';
+      let faixa;
+      if (h < 2.0) faixa = 0;
+      else if (h < 4.0) faixa = 1;
+      else if (h < 8.0) faixa = 2;
+      else faixa = 3;
+      const localIdx = TIPOS_LOCAL_RETIRADA.indexOf(tipoLocal);
+      if (localIdx === -1) return '';
+      return 'Retirada Tipo ' + (faixa * 3 + localIdx + 1);
+    }
+
+    function calcularEnquadramentoPlantio(faixaAltura, areaTipo, replantio) {
+      if (replantio) return 'Plantio Tipo 5';
+      if (faixaAltura === 'muito_pequena') return 'Plantio Tipo 3';
+      if (faixaAltura === 'grande') return 'Plantio Tipo 4';
+      if (areaTipo === 'Área ajardinada/parque/reflorestamento') return 'Plantio Tipo 3';
+      if (areaTipo === 'Área pavimentada') return 'Plantio Tipo 1';
+      if (areaTipo === 'Área não pavimentada') return 'Plantio Tipo 2';
+      return '';
+    }
+
+    function calcularEnquadramentoAreaLivre(executaCalcamento) {
+      if (!executaCalcamento) return '';
+      return executaCalcamento === 'Não' ? 'Área Livre Tipo 2' : 'Área Livre Tipo 1';
+    }
+
+    function toggleReposicao(el) {
+      const bloco = el.closest('.bloco-arvore');
+      if (!bloco) return;
+      const reposDiv = bloco.querySelector('.bloco-reposicao');
+      if (reposDiv) reposDiv.style.display = el.value === 'Retirada com Substituição' ? 'block' : 'none';
+    }
+
+    function atualizarEnquadramentoReposicao(el) {
+      const bloco = el.closest('.bloco-arvore');
+      if (!bloco) return;
+      const campoEnq = bloco.querySelector('[data-field="repos_enquadramento"]');
+      if (!campoEnq) return;
+      if (campoEnq.dataset.manual === '1') return;
+
+      const areaTipoSelect = bloco.querySelector('[data-field="repos_area_livre"]');
+      const faixaAltura = bloco.querySelector('[data-field="repos_altura_faixa"]')?.value;
+      // Muda "muito pequena" (<1,5m) só é válida em área ajardinada/parque/reflorestamento — trava o campo.
+      if (faixaAltura === 'muito_pequena' && areaTipoSelect) {
+        areaTipoSelect.value = 'Área ajardinada/parque/reflorestamento';
+        areaTipoSelect.disabled = true;
+        areaTipoSelect.dataset.autoset = '1';
+      } else if (areaTipoSelect) {
+        areaTipoSelect.disabled = false;
+        if (areaTipoSelect.dataset.autoset === '1') {
+          areaTipoSelect.value = '';
+          areaTipoSelect.dataset.autoset = '';
+        }
+      }
+      const areaTipo = areaTipoSelect?.value;
+      // Plantio de reposição não é necessariamente "Replantio" (Tipo 5) — segue a classificação normal
+      // de Plantio (Tipo 1 a 4), conforme altura da muda e tipo de área.
+      campoEnq.value = calcularEnquadramentoPlantio(faixaAltura, areaTipo, false);
+    }
+
+    function atualizarEnquadramento(el) {
+      const bloco = el.closest('.bloco-arvore');
+      if (!bloco) return;
+      const servico = servicoInput.value;
+      const campoEnq = bloco.querySelector('[data-field="enquadramento"]');
+      if (!campoEnq) return;
+      // Se o usuário já ajustou manualmente este campo, não sobrescrevemos — respeitamos a escolha dele.
+      if (campoEnq.dataset.manual === '1') return;
+
+      let valor = '';
+      if (servico === 'Retirada') {
+        const altura = bloco.querySelector('[data-field="altura"]')?.value;
+        const tipoLocal = bloco.querySelector('[data-field="tipo_local"]')?.value;
+        const situacao = bloco.querySelector('[data-field="situacao_especial"]')?.value;
+        valor = calcularEnquadramentoRetirada(altura, tipoLocal, situacao);
+      } else if (servico === 'Plantio') {
+        const faixaAltura = bloco.querySelector('[data-field="altura_faixa"]')?.value;
+        const areaTipoSelect = bloco.querySelector('[data-field="area_livre"]');
+        // Muda "muito pequena" (<1,5m) só é válida em área ajardinada/parque/reflorestamento — trava o campo.
+        if (faixaAltura === 'muito_pequena' && areaTipoSelect) {
+          areaTipoSelect.value = 'Área ajardinada/parque/reflorestamento';
+          areaTipoSelect.disabled = true;
+          areaTipoSelect.dataset.autoset = '1';
+        } else if (areaTipoSelect) {
+          areaTipoSelect.disabled = false;
+          // Se o valor tinha sido travado automaticamente pela faixa anterior, limpa para o usuário escolher de novo.
+          if (areaTipoSelect.dataset.autoset === '1') {
+            areaTipoSelect.value = '';
+            areaTipoSelect.dataset.autoset = '';
+          }
+        }
+        const areaTipo = areaTipoSelect?.value;
+        const replantio = bloco.querySelector('[data-field="replantio"]')?.checked;
+        valor = calcularEnquadramentoPlantio(faixaAltura, areaTipo, replantio);
+      } else if (servico === 'Área Livre') {
+        const executa = bloco.querySelector('[data-field="executa_calcamento"]')?.value;
+        valor = calcularEnquadramentoAreaLivre(executa);
+      }
+      campoEnq.value = valor;
+    }
+
+    function selectPosicao(fieldName) {
+      fieldName = fieldName || 'posicao';
       const btns = POSICOES.map(p =>
         `<div class="btn-posicao" onclick="selecionarPosicao('${p}', this)">${p}</div>`
       ).join('');
-      return `<input type="hidden" data-field="posicao" /><div class="btn-group-posicao">${btns}</div>`;
+      return `<input type="hidden" data-field="${fieldName}" /><div class="btn-group-posicao">${btns}</div>`;
     }
 
     function selecionarPosicao(valor, el) {
       const grupo = el.closest('.btn-group-posicao');
       grupo.querySelectorAll('.btn-posicao').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
-      const bloco = el.closest('.bloco-arvore');
-      if (bloco) bloco.querySelector('[data-field="posicao"]').value = valor;
+      // Usa o input hidden imediatamente anterior ao grupo (irmão), em vez de buscar no bloco inteiro —
+      // assim funciona corretamente mesmo havendo mais de um seletor de posição no mesmo bloco.
+      const hidden = grupo.previousElementSibling;
+      if (hidden && hidden.matches('input[type="hidden"][data-field]')) hidden.value = valor;
     }
 
-    function blocoArvorePadrao(numero) {
+    function blocoArvorePadrao(numero, servico) {
+      const campoEnquadramento = servico === 'Retirada'
+        ? `<div class="grid-enq">
+            <div><label>Tipo de Local</label><select data-field="tipo_local" onchange="atualizarEnquadramento(this)"><option value="">Selecione...</option>${TIPOS_LOCAL_RETIRADA.map(t => `<option>${t}</option>`).join('')}</select></div>
+            <div><label>Situação Especial</label><select data-field="situacao_especial" onchange="atualizarEnquadramento(this)">${SITUACOES_ESPECIAIS.map(s => `<option ${s==='Nenhuma'?'value=""':''}>${s}</option>`).join('')}</select></div>
+          </div>
+          <label>Enquadramento (Retirada)</label>${selectEnquadramento(RETIRADA_ENQ_OPCOES)}`
+        : servico === 'Área Livre'
+        ? `<div class="grid-enq">
+            <div><label>Executa Calçamento?</label><select data-field="executa_calcamento" onchange="atualizarEnquadramento(this)"><option value="">Selecione...</option><option>Sim</option><option>Não</option></select></div>
+          </div>
+          <label>Enquadramento (Área Livre)</label>${selectEnquadramento(AREA_LIVRE_ENQ_OPCOES)}`
+        : '';
+
+      const campoIndicacao = servico === 'Retirada'
+        ? `<label>Indicação Técnica</label>
+          <select data-field="indicacao" onchange="toggleReposicao(this)">
+            <option value="Retirada sem Substituição">Retirada sem Substituição</option>
+            <option value="Retirada com Substituição">Retirada com Substituição</option>
+          </select>
+          <div class="bloco-reposicao" style="display:none;margin-top:10px;padding:12px;border:1px dashed #2e7d32;border-radius:6px;background:#f1f8f1">
+            <h3 style="margin:0 0 8px;color:#2e7d32;font-size:14px">🌱 Plantio de Reposição</h3>
+            <label>Espécie a Plantar</label>
+            ${espWidgetHtml('repos_especie', '🔍 Buscar espécie a plantar...')}
+            <div class="grid-enq">
+              <div><label>Quantidade</label><input type="number" data-field="repos_quantidade" value="1" /></div>
+              <div><label>Altura da Muda</label><select data-field="repos_altura_faixa" onchange="atualizarEnquadramentoReposicao(this)"><option value="">Selecione...</option>${FAIXAS_ALTURA_PLANTIO.map(f => `<option value="${f.valor}">${f.label}</option>`).join('')}</select></div>
+            </div>
+            <label>Área Livre</label>
+            <select data-field="repos_area_livre" onchange="atualizarEnquadramentoReposicao(this)"><option value="">Selecione...</option><option>Área pavimentada</option><option>Área não pavimentada</option><option>Área ajardinada/parque/reflorestamento</option></select>
+            <label>Posição do Plantio</label>${selectPosicao('repos_posicao')}
+            <label>Enquadramento (Plantio)</label>${selectEnquadramento(PLANTIO_ENQ_OPCOES.filter(o => o.valor !== 'Plantio Tipo 5'), 'repos_enquadramento')}
+          </div>`
+        : `<label>Indicação Técnica</label><textarea data-field="indicacao" placeholder="Poda de limpeza, rebaixamento, etc."></textarea>`;
       return `<h2><span>Árvore ${numero}</span><button type="button" class="btn-remove" onclick="removerArvore(this)">Remover</button></h2>
         <label>Espécie</label>
-        <input type="hidden" data-field="especie" />
-        <div class="esp-widget">
-          <input type="text" class="esp-busca" placeholder="🔍 Buscar espécie..." oninput="filtrarEsp(this)" />
-          <div class="esp-lista"></div>
-          <div class="esp-selecionada-container"></div>
-          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
-            <input type="text" class="esp-outro" placeholder="✏️ Outra espécie (digite e pressione +)" style="flex:1" />
-            <button type="button" onclick="adicionarOutraEsp(this)" style="margin-top:0;padding:8px 14px;background:#455a64;color:#fff;border-radius:4px;font-size:13px">+</button>
-          </div>
-        </div>
+        ${espWidgetHtml('especie')}
         <div class="grid-arvore">
           <div><label>Quantidade</label><input type="number" data-field="quantidade" value="1" /></div>
-          <div><label>Altura (m)</label><input type="number" step="0.1" data-field="altura" /></div>
+          <div><label>Altura (m)</label><input type="number" step="0.1" data-field="altura" onchange="atualizarEnquadramento(this)" /></div>
           <div><label>CAP (cm)</label><input type="number" data-field="cap" /></div>
         </div>
         <label>Posição</label>${selectPosicao()}
+        ${campoEnquadramento}
         <label>Diagnóstico</label>
         <input type="hidden" data-field="diagnostico" />
         <div class="diag-widget">
@@ -607,7 +796,7 @@
             <button type="button" onclick="adicionarOutroDiag(this)" style="margin-top:0;padding:8px 14px;background:#455a64;color:#fff;border-radius:4px;font-size:13px">+</button>
           </div>
         </div>
-        <label>Indicação Técnica</label><textarea data-field="indicacao" placeholder="Poda de limpeza, rebaixamento, etc."></textarea>
+        ${campoIndicacao}
         <label>Obs. Específicas</label><textarea data-field="obs"></textarea>
         <label>Fotografias</label>
         <div class="grid-fotos-arvore">
@@ -627,22 +816,18 @@
     function blocoArvorePlantio(numero) {
       return `<h2><span>Árvore ${numero} (Plantio)</span><button type="button" class="btn-remove" onclick="removerArvore(this)">Remover</button></h2>
         <label>Espécie Sugerida</label>
-        <input type="hidden" data-field="especie" />
-        <div class="esp-widget">
-          <input type="text" class="esp-busca" placeholder="🔍 Buscar espécie..." oninput="filtrarEsp(this)" />
-          <div class="esp-lista"></div>
-          <div class="esp-selecionada-container"></div>
-          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
-            <input type="text" class="esp-outro" placeholder="✏️ Outra espécie (digite e pressione +)" style="flex:1" />
-            <button type="button" onclick="adicionarOutraEsp(this)" style="margin-top:0;padding:8px 14px;background:#455a64;color:#fff;border-radius:4px;font-size:13px">+</button>
-          </div>
-        </div>
+        ${espWidgetHtml('especie')}
         <div class="grid-plantio">
           <div><label>Quantidade</label><input type="number" data-field="quantidade" value="1" /></div>
-          <div><label>Área Livre</label><select data-field="area_livre"><option value="">Selecione...</option><option>Área pavimentada</option><option>Área livre aberta</option><option>Área não pavimentada</option></select></div>
+          <div><label>Altura da Muda</label><select data-field="altura_faixa" onchange="atualizarEnquadramento(this)"><option value="">Selecione...</option>${FAIXAS_ALTURA_PLANTIO.map(f => `<option value="${f.valor}">${f.label}</option>`).join('')}</select></div>
           <div><label>Largura Calçada (m)</label><input type="number" step="0.1" data-field="largura_calcada" /></div>
         </div>
+        <div class="grid-enq" style="grid-template-columns: 1fr 140px; align-items: end">
+          <div><label>Área Livre</label><select data-field="area_livre" onchange="atualizarEnquadramento(this)"><option value="">Selecione...</option><option>Área pavimentada</option><option>Área não pavimentada</option><option>Área ajardinada/parque/reflorestamento</option></select></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><input type="checkbox" data-field="replantio" onchange="atualizarEnquadramento(this)" style="width:auto;margin:0" /><label style="margin:0">Replantio</label></div>
+        </div>
         <label>Posição</label>${selectPosicao()}
+        <label>Enquadramento (Plantio)</label>${selectEnquadramento(PLANTIO_ENQ_OPCOES)}
         <label>Obs. do Local</label><textarea data-field="obs"></textarea>
         <label>Fotografias</label>
         <div class="grid-fotos-arvore">
@@ -673,7 +858,23 @@
       "Quaresmeira","Resedá","Sabiá","Sibipiruna","Sombreiro",
       "Sumaúma","Tamarindo","Tipuana","Uvaia","Tespésia","Flor de Rainha","Pata de Vaca","Senna siamea","Chuva de Ouro",
       "Lofântera","Árvore Samambaia","Angico Cangalha","Clerodendrum","Não Identificado","Cassia Javanica","Árvore de Fogo",
-      "Coqueiro","Algodão da Praia","Albízia","Palmeira Areca Bambú","Palmeira de Manila","Castanheira Molulo","Castanheira Rabo de Raposa","Uva da Praia","Escova de Garrafa"    ];
+      "Algodão da Praia","Albízia","Palmeira Areca Bambú","Palmeira de Manila","Castanheira Molulo","Castanheira Rabo de Raposa","Uva da Praia","Escova de Garrafa"
+    ];
+
+    function espWidgetHtml(fieldName, placeholder) {
+      fieldName = fieldName || 'especie';
+      placeholder = placeholder || '🔍 Buscar espécie...';
+      return `<input type="hidden" data-field="${fieldName}" />
+        <div class="esp-widget">
+          <input type="text" class="esp-busca" placeholder="${placeholder}" oninput="filtrarEsp(this)" />
+          <div class="esp-lista"></div>
+          <div class="esp-selecionada-container"></div>
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <input type="text" class="esp-outro" placeholder="✏️ Outra espécie (digite e pressione +)" style="flex:1" />
+            <button type="button" onclick="adicionarOutraEsp(this)" style="margin-top:0;padding:8px 14px;background:#455a64;color:#fff;border-radius:4px;font-size:13px">+</button>
+          </div>
+        </div>`;
+    }
 
     function initEspWidget(widget) {
       renderListaEsp(widget, ESPECIES);
@@ -696,17 +897,13 @@
     }
 
     function getEspSelecionada(widget) {
-      const bloco = widget.closest('.bloco-arvore');
-      const h = bloco ? bloco.querySelector('[data-field="especie"]') : null;
-      return h ? h.value : '';
+      const h = widget.previousElementSibling;
+      return (h && h.matches('input[type="hidden"][data-field]')) ? h.value : '';
     }
 
     function salvarEsp(widget, valor) {
-      const bloco = widget.closest('.bloco-arvore');
-      if (bloco) {
-        const h = bloco.querySelector('[data-field="especie"]');
-        if (h) h.value = valor;
-      }
+      const h = widget.previousElementSibling;
+      if (h && h.matches('input[type="hidden"][data-field]')) h.value = valor;
     }
 
     function renderEspSelecionada(widget, valor) {
@@ -750,7 +947,6 @@
       "Vegetal com lesão necrótica no tronco","Vegetal com lesão necrótica em galhos",
       "Vegetal com lesão necrótica e perda de tecidos (oco)","Vegetal com injúria mecânica",
       "Vegetal com indicativo de injúria química",
-      "Vegetal em declínio vegetativo",
       "Vegetal em conflito com obra de infraestrutura urbana","Vegetal em conflito com serviço público",
       "Vegetal em conflito com obras/serviços de construção e reforma de edificações",
       "Vegetal em conflito com muro","Vegetal em conflito com mobiliário urbano",
@@ -876,7 +1072,7 @@
       contadorArvores++;
       const div = document.createElement('div');
       div.className = 'bloco-arvore';
-      div.innerHTML = servicoInput.value === 'Plantio' ? blocoArvorePlantio(contadorArvores) : blocoArvorePadrao(contadorArvores);
+      div.innerHTML = servicoInput.value === 'Plantio' ? blocoArvorePlantio(contadorArvores) : blocoArvorePadrao(contadorArvores, servicoInput.value);
       arvoresContainer.appendChild(div);
       // Inicializa widgets de diagnóstico no bloco recém-adicionado
       div.querySelectorAll('.diag-widget').forEach(w => initDiagWidget(w));
@@ -902,6 +1098,8 @@
           b.querySelectorAll('[data-field]').forEach(f => {
             if (f.dataset.field === 'diagnostico') {
               d['diagnostico'] = f.value ? f.value.split('||') : [];
+            } else if (f.type === 'checkbox') {
+              d[f.dataset.field] = f.checked;
             } else {
               d[f.dataset.field] = f.value;
             }
@@ -1042,6 +1240,8 @@
         b.querySelectorAll('[data-field]').forEach(f => {
           if (f.dataset.field === 'diagnostico') {
             d['diagnostico'] = f.value ? f.value.split('||') : [];
+          } else if (f.type === 'checkbox') {
+            d[f.dataset.field] = f.checked;
           } else {
             d[f.dataset.field] = f.value;
           }
@@ -1069,6 +1269,7 @@
               <td>${a.posicao || '-'}</td>
               <td>${a.area_livre || '-'}</td>
               <td>${a.largura_calcada ? a.largura_calcada + ' m' : '-'}</td>
+              <td>${a.enquadramento || '-'}</td>
             </tr>`).join('')
         : arvores.map(a => `
             <tr>
@@ -1078,43 +1279,57 @@
               <td>${a.altura || '-'}</td>
               <td>${a.cap || '-'}</td>
               <td>${a.posicao || '-'}</td>
+              <td>${a.enquadramento || '-'}</td>
             </tr>`).join('');
 
       // Cabeçalho da tabela — diferente para Plantio
       const cabecalhoTabela = ehPlantio
-        ? `<tr><th>#</th><th>Espécie Sugerida</th><th>Qtd</th><th>Posição</th><th>Área Livre</th><th>Larg. Calçada</th></tr>`
-        : `<tr><th>#</th><th>Espécie</th><th>Qtd</th><th>Alt. (m)</th><th>CAP (cm)</th><th>Posição</th></tr>`;
+        ? `<tr><th>#</th><th>Espécie Sugerida</th><th>Qtd</th><th>Posição</th><th>Área Livre</th><th>Larg. Calçada</th><th>Enquadramento</th></tr>`
+        : `<tr><th>#</th><th>Espécie</th><th>Qtd</th><th>Alt. (m)</th><th>CAP (cm)</th><th>Posição</th><th>Enquadramento</th></tr>`;
 
       // Blocos abaixo da tabela — Obs. do Local para Plantio, Diagnóstico/Indicação para os demais
       const blocosDiag = ehPlantio
         ? arvores.map(a => {
-            if (!a.obs) return '';
+            if (!a.obs && !a.enquadramento) return '';
             return `
               <div class="pdf-diag-item">
                 <div class="pdf-diag-titulo">Local ${a.numero}${a.especie ? ' — ' + a.especie : ''}</div>
-                <div>
-                  <span class="pdf-diag-label">Obs. do Local</span>
-                  <span class="pdf-diag-texto">${a.obs}</span>
-                </div>
+                ${a.obs ? `<div style="display:block;float:none;clear:both;text-align:left">
+                  <span class="pdf-diag-label" style="display:block;float:none;text-align:left">Obs. do Local</span>
+                  <span class="pdf-diag-texto" style="display:block;float:none;text-align:justify">${a.obs}</span>
+                </div>` : ''}
+                ${a.enquadramento ? `<div style="display:block;float:none;clear:both;text-align:left;margin-top:6px">
+                  <span class="pdf-diag-label" style="display:block;float:none;text-align:left">Enquadramento</span>
+                  <span class="pdf-diag-texto" style="display:block;float:none;text-align:left">${a.enquadramento}</span>
+                </div>` : ''}
               </div>`;
           }).join('')
         : arvores.map(a => {
             const temDiag = Array.isArray(a.diagnostico) ? a.diagnostico.length > 0 : !!a.diagnostico;
-            if (!temDiag && !a.indicacao) return '';
+            const temRepos = a.indicacao === 'Retirada com Substituição';
+            if (!temDiag && !a.indicacao && !temRepos && !a.enquadramento) return '';
             return `
               <div class="pdf-diag-item">
                 <div class="pdf-diag-titulo">${ehPlantio ? 'Local' : 'Árvore'} ${a.numero}${a.especie ? ' — ' + a.especie : ''}</div>
-                <div class="pdf-diag-row">
+                <div class="pdf-diag-row" style="${a.obs ? 'grid-template-columns:1fr 1fr 1fr' : ''}">
                   <div>
                     <span class="pdf-diag-label">Diagnóstico</span>
-                    <span class="pdf-diag-texto">${Array.isArray(a.diagnostico) && a.diagnostico.length ? a.diagnostico.join(' • ') : (a.diagnostico || '-')}</span>
+                    <span class="pdf-diag-texto" style="display:block;text-align:justify">${Array.isArray(a.diagnostico) && a.diagnostico.length ? a.diagnostico.join(' • ') : (a.diagnostico || '-')}</span>
                   </div>
                   <div>
                     <span class="pdf-diag-label">Indicação Técnica</span>
-                    <span class="pdf-indicacao-texto">${a.indicacao || '-'}</span>
+                    <span class="pdf-indicacao-texto" style="display:block;text-align:justify">${a.indicacao || '-'}</span>
                   </div>
+                  ${a.obs ? `<div>
+                    <span class="pdf-diag-label">Obs. Específicas</span>
+                    <span class="pdf-diag-texto" style="display:block;text-align:justify">${a.obs}</span>
+                  </div>` : ''}
                 </div>
-                ${a.obs ? `<div style="margin-top:4px"><span class="pdf-diag-label">Obs. Específicas</span><span class="pdf-diag-texto">${a.obs}</span></div>` : ''}
+                ${a.enquadramento ? `<div style="margin-top:4px"><span class="pdf-diag-label">Enquadramento</span><span class="pdf-diag-texto">${a.enquadramento}</span></div>` : ''}
+                ${temRepos ? `<div style="margin-top:6px;padding:6px 8px;border:1px dashed #2e7d32;border-radius:4px;background:#f1f8f1">
+                    <span class="pdf-diag-label">🌱 Plantio de Reposição</span>
+                    <span class="pdf-diag-texto">Espécie: ${a.repos_especie || '-'} • Qtd: ${a.repos_quantidade || '1'} • Posição: ${a.repos_posicao || '-'}${a.repos_enquadramento ? ' • Enquadramento: ' + a.repos_enquadramento : ''}</span>
+                  </div>` : ''}
               </div>`;
           }).join('');
 
@@ -1492,12 +1707,12 @@
 
         // Tabela de árvores
         const cabTabela = ehPlantio
-          ? [['#', 'Espécie Sugerida', 'Qtd', 'Posição', 'Área Livre', 'Larg. Calçada']]
-          : [['#', 'Espécie', 'Qtd', 'Alt. (m)', 'CAP (cm)', 'Posição']];
+          ? [['#', 'Espécie Sugerida', 'Qtd', 'Posição', 'Área Livre', 'Larg. Calçada', 'Enquadramento']]
+          : [['#', 'Espécie', 'Qtd', 'Alt. (m)', 'CAP (cm)', 'Posição', 'Enquadramento']];
 
         const linhasTabela2 = arvores.map(a => ehPlantio
-          ? [a.numero, a.especie||'-', a.quantidade||'1', a.posicao||'-', a.area_livre||'-', a.largura_calcada ? a.largura_calcada+'m' : '-']
-          : [a.numero, a.especie||'-', a.quantidade||'1', a.altura||'-', a.cap||'-', a.posicao||'-']
+          ? [a.numero, a.especie||'-', a.quantidade||'1', a.posicao||'-', a.area_livre||'-', a.largura_calcada ? a.largura_calcada+'m' : '-', a.enquadramento||'-']
+          : [a.numero, a.especie||'-', a.quantidade||'1', a.altura||'-', a.cap||'-', a.posicao||'-', a.enquadramento||'-']
         );
 
         doc.autoTable({
@@ -1536,7 +1751,12 @@
         // Diagnóstico por árvore
         arvores.forEach(a => {
           const diagTexto = Array.isArray(a.diagnostico) && a.diagnostico.length ? a.diagnostico.join(' • ') : (a.diagnostico || '');
-          if (!diagTexto && !a.indicacao && !a.obs) return;
+          const enquadTexto = a.enquadramento || '';
+          const reposTexto = a.indicacao === 'Retirada com Substituição'
+            ? `Espécie: ${a.repos_especie || '-'} • Qtd: ${a.repos_quantidade || '1'} • Posição: ${a.repos_posicao || '-'}${a.repos_enquadramento ? ' • Enquadramento: ' + a.repos_enquadramento : ''}`
+            : '';
+          const reposTitulo = 'Plantio de Reposição';
+          if (!diagTexto && !a.indicacao && !a.obs && !enquadTexto && !reposTexto) return;
 
           const PAD  = 2;
           const colX = mX + 3;
@@ -1548,15 +1768,27 @@
           const LH8  =  8 * 1.15 / _sf; // ~3.25mm
           doc.setFont('helvetica', 'normal');
 
-          const diagLines = diagTexto   ? quebrarTexto(doc, diagTexto,   maxW, 10) : [];
-          const indLines  = a.indicacao ? quebrarTexto(doc, a.indicacao, maxW, 10) : [];
-          const obsLines  = a.obs       ? quebrarTexto(doc, a.obs,       maxW, 10) : [];
+          // Diagnóstico / Indicação Técnica / Obs. Específicas lado a lado, em 3 colunas
+          // (só se aplica quando há Diagnóstico ou Indicação Técnica — ou seja, não em Plantio,
+          //  senão a Obs. sozinha cairia isolada na 3ª coluna, à direita, com espaço vazio à esquerda)
+          const enquadLines = enquadTexto ? quebrarTexto(doc, enquadTexto, maxW, 10) : [];
+          const reposLines  = reposTexto  ? quebrarTexto(doc, reposTexto,  maxW, 10) : [];
+          const colGap = 4;
+          const colW3 = (maxW - 2*colGap) / 3;
+          const usaColunas = !ehPlantio && !!(diagTexto || a.indicacao || a.obs);
+          const obsSozinha = ehPlantio && !!a.obs;
+          const diagWrapped = diagTexto   ? doc.splitTextToSize(diagTexto,   colW3) : [];
+          const indWrapped  = a.indicacao ? doc.splitTextToSize(a.indicacao, colW3) : [];
+          const obsWrapped  = (usaColunas && a.obs) ? doc.splitTextToSize(a.obs, colW3) : [];
+          const obsLines    = obsSozinha ? quebrarTexto(doc, a.obs, maxW, 10) : [];
+          const linhasColunas = Math.max(diagWrapped.length, indWrapped.length, obsWrapped.length, usaColunas ? 1 : 0);
 
           // Altura exata do bloco
           let alturaBloco = PAD + LH10 + 2;
-          if (diagTexto)   alturaBloco += LH8 + diagLines.length * LH10 + 2;
-          if (a.indicacao) alturaBloco += LH8 + indLines.length  * LH10 + 2;
-          if (a.obs)       alturaBloco += LH8 + obsLines.length  * LH10 + 2;
+          if (enquadTexto) alturaBloco += LH8 + enquadLines.length * LH10 + 2;
+          if (usaColunas)  alturaBloco += LH8 + linhasColunas * LH10 + 2;
+          if (obsSozinha)  alturaBloco += LH8 + obsLines.length * LH10 + 2;
+          if (reposTexto)  alturaBloco += LH8 + reposLines.length * LH10 + 2;
           alturaBloco += PAD;
 
           y = checkPagina(y, alturaBloco + 3);
@@ -1575,33 +1807,49 @@
 
           let yBloco = y + PAD + LH10 + 4;
 
-          // Diagnóstico
-          if (diagTexto) {
+          // Diagnóstico / Indicação Técnica / Obs. Específicas — lado a lado, justificado
+          if (usaColunas) {
+            const colX2 = colX + colW3 + colGap;
+            const colX3 = colX + 2 * (colW3 + colGap);
             doc.setFontSize(8); doc.setTextColor(130, 130, 130);
-            doc.text('Diagnóstico', colX, yBloco);
-            yBloco += LH8;
+            if (diagTexto)   doc.text('Diagnóstico', colX, yBloco);
+            if (a.indicacao) doc.text('Indicação Técnica', colX2, yBloco);
+            if (a.obs)       doc.text('Obs. Específicas', colX3, yBloco);
+            const yTexto = yBloco + LH8;
             doc.setFontSize(10); doc.setTextColor(0, 0, 0);
-            diagLines.forEach(linha => { doc.text(linha, colX, yBloco); yBloco += LH10; });
-            yBloco += 2;
+            if (diagTexto)   doc.text(diagTexto,   colX,  yTexto, { maxWidth: colW3, align: 'justify' });
+            if (a.indicacao) doc.text(a.indicacao, colX2, yTexto, { maxWidth: colW3, align: 'justify' });
+            if (a.obs)       doc.text(a.obs,       colX3, yTexto, { maxWidth: colW3, align: 'justify' });
+            yBloco = yTexto + linhasColunas * LH10 + 2;
           }
 
-          // Indicação Técnica
-          if (a.indicacao) {
+          // Obs. do Local (Plantio) — largura toda, à esquerda
+          if (obsSozinha) {
             doc.setFontSize(8); doc.setTextColor(130, 130, 130);
-            doc.text('Indicação Técnica', colX, yBloco);
-            yBloco += LH8;
-            doc.setFontSize(10); doc.setTextColor(0, 0, 0);
-            indLines.forEach(linha => { doc.text(linha, colX, yBloco); yBloco += LH10; });
-            yBloco += 2;
-          }
-
-          // Obs. Específicas
-          if (a.obs) {
-            doc.setFontSize(8); doc.setTextColor(130, 130, 130);
-            doc.text(ehPlantio ? 'Obs. do Local' : 'Obs. Específicas', colX, yBloco);
+            doc.text('Obs. do Local', colX, yBloco);
             yBloco += LH8;
             doc.setFontSize(10); doc.setTextColor(0, 0, 0);
             obsLines.forEach(linha => { doc.text(linha, colX, yBloco); yBloco += LH10; });
+            yBloco += 2;
+          }
+
+          // Enquadramento (Ordem de Serviço)
+          if (enquadTexto) {
+            doc.setFontSize(8); doc.setTextColor(130, 130, 130);
+            doc.text('Enquadramento', colX, yBloco);
+            yBloco += LH8;
+            doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+            enquadLines.forEach(linha => { doc.text(linha, colX, yBloco); yBloco += LH10; });
+            yBloco += 2;
+          }
+
+          // Plantio de Reposição
+          if (reposTexto) {
+            doc.setFontSize(8); doc.setTextColor(130, 130, 130);
+            doc.text(reposTitulo, colX, yBloco);
+            yBloco += LH8;
+            doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+            reposLines.forEach(linha => { doc.text(linha, colX, yBloco); yBloco += LH10; });
           }
 
           y += alturaBloco + 3;
