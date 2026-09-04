@@ -79,6 +79,11 @@
     .btn-group-ref { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 8px; }
     .btn-ref { background: #fff; border: 2px solid #455a64; color: #455a64; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 4px; text-align: center; font-size: 14px; }
     .btn-ref.active { background: #455a64; color: #fff; }
+    .btn-tela { flex: 1; background: #fff; border: 2px solid #2e7d32; color: #2e7d32; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 4px; text-align: center; font-size: 14px; }
+    .btn-tela.active { background: #2e7d32; color: #fff; }
+    .sic-resultado-item { padding: 8px; border: 1px solid #ddd; border-top: none; cursor: pointer; font-size: 13px; background: #fff; }
+    .sic-resultado-item:hover { background: #f1f8f1; }
+    .modal-sic { display: none; margin-top: 10px; padding: 14px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
     .btn-group-posicao { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
     .btn-posicao { background: #fff; border: 2px solid #455a64; color: #455a64; padding: 6px 10px; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 12px; margin: 0; }
     .btn-posicao.active { background: #455a64; color: #fff; }
@@ -250,6 +255,12 @@
   <div class="container">
     <h1>Relatório Técnico</h1>
 
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <div class="btn-tela active" id="tabVistoria" onclick="mostrarTela('vistoria')">📋 Vistoria</div>
+      <div class="btn-tela" id="tabSics" onclick="mostrarTela('sics')">🗺️ Mapa de SICs</div>
+    </div>
+
+    <div id="telaVistoria">
     <form id="dataForm">
       <label>Ref.</label>
       <input type="hidden" id="referencia" required />
@@ -311,6 +322,57 @@
 
     <button type="button" class="btn-pdf" onclick="gerarPDF()">📥 Gerar e Baixar Relatório</button>
     <button type="button" class="btn-limpar" onclick="limparFormulario()">🗑️ Limpar Formulário</button>
+    </div>
+
+    <div id="telaSics" style="display:none">
+      <div id="mapaSics" style="height:420px;border-radius:6px;margin-bottom:10px"></div>
+      <div id="legendaSics" style="display:flex;gap:14px;margin-bottom:10px;font-size:13px;color:#444">
+        <span>🔴 Pendente</span><span>🟠 Em andamento</span><span>🟢 Concluído</span>
+      </div>
+      <button type="button" class="btn-gps" onclick="abrirFormSic()">+ Novo SIC</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button type="button" onclick="exportarSics()" style="flex:1;margin-top:0;padding:10px;background:#455a64;color:#fff;border:none;border-radius:4px;font-weight:bold;cursor:pointer">⬇️ Exportar SICs</button>
+        <button type="button" onclick="document.getElementById('inputImportarSics').click()" style="flex:1;margin-top:0;padding:10px;background:#455a64;color:#fff;border:none;border-radius:4px;font-weight:bold;cursor:pointer">⬆️ Importar SICs</button>
+        <input type="file" id="inputImportarSics" accept="application/json,.json" style="display:none" onchange="importarSics(this)" />
+      </div>
+      <div id="importStatus" style="font-size:12px;color:#666;margin-top:4px"></div>
+
+      <div class="modal-sic" id="modalSic">
+        <h3 id="modalSicTitulo" style="margin-top:0">Novo SIC</h3>
+        <label>Protocolo</label>
+        <input type="text" id="sicProtocolo" placeholder="Ex: 12345/2026" />
+        <label>Requerente</label>
+        <input type="text" id="sicRequerente" />
+        <label>Buscar Endereço (requer internet)</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="sicBuscaEndereco" placeholder="Ex: Rua X, 123, Bairro" style="flex:1" />
+          <button type="button" onclick="buscarEnderecoSic()" style="margin-top:0;padding:8px 14px;background:#455a64;color:#fff;border-radius:4px;font-size:13px">🔍 Buscar</button>
+        </div>
+        <div id="sicResultadosBusca"></div>
+        <div class="grid-endereco">
+          <div><label>Bairro</label><input type="text" id="sicBairro" /></div>
+          <div><label>Rua</label><input type="text" id="sicRua" /></div>
+          <div><label>Nº</label><input type="text" id="sicNumero" /></div>
+        </div>
+        <div class="coords" id="sicCoords">Toque no mapa para marcar o local, ou busque o endereço acima.</div>
+        <label>Tipo de Serviço Solicitado</label>
+        <select id="sicTipoServico">
+          <option value="">Selecione...</option>
+          <option>Poda</option><option>Retirada</option><option>Área Livre</option>
+          <option>Plantio</option><option>Tratamento Fitossanitário</option><option>Outros</option>
+        </select>
+        <label>Data da Solicitação</label>
+        <input type="date" id="sicData" />
+        <label>Status</label>
+        <select id="sicStatus"><option>Pendente</option><option>Em andamento</option><option>Concluído</option></select>
+        <label>Observações</label>
+        <textarea id="sicObs"></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button type="button" onclick="salvarSic()" class="btn-pdf" style="margin-top:0;flex:1">💾 Salvar SIC</button>
+          <button type="button" onclick="fecharFormSic()" class="btn-limpar" style="margin-top:0">Cancelar</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- CONTAINER DO RELATÓRIO PDF (oculto na tela, visível apenas na impressão) -->
@@ -419,6 +481,265 @@
       [100, 300, 600, 1000].forEach(t => setTimeout(() => mapa.invalidateSize(), t));
       // Recalcula tamanho ao redimensionar a janela (ex: teclado virtual no celular)
       window.addEventListener('resize', () => mapa.invalidateSize());
+    }
+
+    // ===== MAPA DE SICs (solicitações) =====
+    let mapaSics, marcadorSicTemp, marcadoresSics = [], sicEditandoId = null;
+    let sics = [];
+    try { sics = JSON.parse(localStorage.getItem('sics')) || []; } catch (e) { sics = []; }
+
+    function mostrarTela(nome) {
+      document.getElementById('telaVistoria').style.display = nome === 'vistoria' ? 'block' : 'none';
+      document.getElementById('telaSics').style.display = nome === 'sics' ? 'block' : 'none';
+      document.getElementById('tabVistoria').classList.toggle('active', nome === 'vistoria');
+      document.getElementById('tabSics').classList.toggle('active', nome === 'sics');
+      if (nome === 'sics') {
+        if (!mapaSics) initMapaSics();
+        setTimeout(() => mapaSics.invalidateSize(), 100);
+        renderMarcadoresSics();
+      }
+    }
+
+    function initMapaSics() {
+      mapaSics = L.map('mapaSics').setView([-20.3155, -40.3128], 13);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(mapaSics);
+      mapaSics.on('click', function(e) {
+        if (document.getElementById('modalSic').style.display === 'block') {
+          definirLocalSic(e.latlng.lat, e.latlng.lng);
+        }
+      });
+    }
+
+    function definirLocalSic(lat, lng) {
+      if (marcadorSicTemp) mapaSics.removeLayer(marcadorSicTemp);
+      marcadorSicTemp = L.marker([lat, lng]).addTo(mapaSics);
+      const coordsEl = document.getElementById('sicCoords');
+      coordsEl.textContent = `Local marcado — Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}`;
+      coordsEl.dataset.lat = lat;
+      coordsEl.dataset.lng = lng;
+    }
+
+    function abrirFormSic(id) {
+      sicEditandoId = id || null;
+      document.getElementById('modalSicTitulo').textContent = id ? 'Editar SIC' : 'Novo SIC';
+      document.getElementById('modalSic').style.display = 'block';
+      if (marcadorSicTemp) { mapaSics.removeLayer(marcadorSicTemp); marcadorSicTemp = null; }
+
+      if (id) {
+        const s = sics.find(x => x.id === id);
+        if (!s) return;
+        document.getElementById('sicProtocolo').value = s.protocolo || '';
+        document.getElementById('sicRequerente').value = s.requerente || '';
+        document.getElementById('sicBairro').value = s.bairro || '';
+        document.getElementById('sicRua').value = s.rua || '';
+        document.getElementById('sicNumero').value = s.numero || '';
+        document.getElementById('sicTipoServico').value = s.tipoServico || '';
+        document.getElementById('sicData').value = s.dataSolicitacao || '';
+        document.getElementById('sicStatus').value = s.status || 'Pendente';
+        document.getElementById('sicObs').value = s.observacoes || '';
+        if (s.lat && s.lng) {
+          definirLocalSic(s.lat, s.lng);
+          mapaSics.setView([s.lat, s.lng], 17);
+        }
+      } else {
+        ['sicProtocolo','sicRequerente','sicBairro','sicRua','sicNumero','sicData','sicObs','sicBuscaEndereco'].forEach(fid => document.getElementById(fid).value = '');
+        document.getElementById('sicTipoServico').value = '';
+        document.getElementById('sicStatus').value = 'Pendente';
+        document.getElementById('sicResultadosBusca').innerHTML = '';
+        const coordsEl = document.getElementById('sicCoords');
+        coordsEl.textContent = 'Toque no mapa para marcar o local, ou busque o endereço acima.';
+        delete coordsEl.dataset.lat;
+        delete coordsEl.dataset.lng;
+      }
+    }
+
+    function fecharFormSic() {
+      document.getElementById('modalSic').style.display = 'none';
+      if (marcadorSicTemp) { mapaSics.removeLayer(marcadorSicTemp); marcadorSicTemp = null; }
+      sicEditandoId = null;
+    }
+
+    async function buscarEnderecoSic() {
+      const q = document.getElementById('sicBuscaEndereco').value.trim();
+      const resultadosDiv = document.getElementById('sicResultadosBusca');
+      if (!q) { resultadosDiv.innerHTML = ''; return; }
+      resultadosDiv.innerHTML = '<div class="sic-resultado-item">Buscando...</div>';
+      try {
+        const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=' + encodeURIComponent(q + ', Vitória, ES, Brasil');
+        const resp = await fetch(url);
+        const dados = await resp.json();
+        if (!dados.length) { resultadosDiv.innerHTML = '<div class="sic-resultado-item">Nenhum resultado encontrado.</div>'; return; }
+        window._sicResultados = dados;
+        resultadosDiv.innerHTML = dados.map((d, i) =>
+          `<div class="sic-resultado-item" onclick="selecionarResultadoSic(${i})">${d.display_name}</div>`
+        ).join('');
+      } catch (e) {
+        resultadosDiv.innerHTML = '<div class="sic-resultado-item">Erro ao buscar — verifique sua internet. Você ainda pode marcar o local tocando no mapa.</div>';
+      }
+    }
+
+    function selecionarResultadoSic(i) {
+      const d = window._sicResultados[i];
+      if (!d) return;
+      const lat = parseFloat(d.lat), lng = parseFloat(d.lon);
+      mapaSics.setView([lat, lng], 17);
+      definirLocalSic(lat, lng);
+      const addr = d.address || {};
+      document.getElementById('sicBairro').value = addr.suburb || addr.neighbourhood || addr.city_district || '';
+      document.getElementById('sicRua').value = addr.road || '';
+      document.getElementById('sicNumero').value = addr.house_number || '';
+      document.getElementById('sicResultadosBusca').innerHTML = '';
+    }
+
+    function salvarSic() {
+      const coordsEl = document.getElementById('sicCoords');
+      const lat = parseFloat(coordsEl.dataset.lat), lng = parseFloat(coordsEl.dataset.lng);
+      if (isNaN(lat) || isNaN(lng)) { alert('Marque o local no mapa ou busque o endereço antes de salvar.'); return; }
+
+      const sic = {
+        id: sicEditandoId || ('sic_' + Date.now()),
+        protocolo: document.getElementById('sicProtocolo').value,
+        requerente: document.getElementById('sicRequerente').value,
+        bairro: document.getElementById('sicBairro').value,
+        rua: document.getElementById('sicRua').value,
+        numero: document.getElementById('sicNumero').value,
+        lat, lng,
+        tipoServico: document.getElementById('sicTipoServico').value,
+        dataSolicitacao: document.getElementById('sicData').value,
+        status: document.getElementById('sicStatus').value,
+        observacoes: document.getElementById('sicObs').value
+      };
+
+      if (sicEditandoId) {
+        sics = sics.map(s => s.id === sicEditandoId ? sic : s);
+      } else {
+        sics.push(sic);
+      }
+      localStorage.setItem('sics', JSON.stringify(sics));
+      fecharFormSic();
+      renderMarcadoresSics();
+    }
+
+    function excluirSic(id) {
+      if (!confirm('Excluir este SIC do mapa?')) return;
+      sics = sics.filter(s => s.id !== id);
+      localStorage.setItem('sics', JSON.stringify(sics));
+      renderMarcadoresSics();
+    }
+
+    function exportarSics() {
+      if (!sics.length) { alert('Não há nenhum SIC cadastrado para exportar.'); return; }
+      const blob = new Blob([JSON.stringify(sics, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dataHoje = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `sics_${dataHoje}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function importarSics(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const statusDiv = document.getElementById('importStatus');
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importados = JSON.parse(e.target.result);
+          if (!Array.isArray(importados)) throw new Error('Formato inválido');
+
+          // Mescla por id: atualiza os que já existem, adiciona os novos — não apaga nada que já estava salvo aqui
+          let novos = 0, atualizados = 0;
+          importados.forEach(imp => {
+            if (!imp.id || typeof imp.lat !== 'number' || typeof imp.lng !== 'number') return;
+            const idx = sics.findIndex(s => s.id === imp.id);
+            if (idx >= 0) { sics[idx] = imp; atualizados++; }
+            else { sics.push(imp); novos++; }
+          });
+          localStorage.setItem('sics', JSON.stringify(sics));
+          renderMarcadoresSics();
+          statusDiv.style.color = '#2e7d32';
+          statusDiv.textContent = `✅ Importado: ${novos} novo(s), ${atualizados} atualizado(s).`;
+        } catch (err) {
+          statusDiv.style.color = '#c62828';
+          statusDiv.textContent = '❌ Arquivo inválido — verifique se é um export de SICs deste mesmo app.';
+        }
+        input.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    function renderMarcadoresSics() {
+      if (!mapaSics) return;
+      marcadoresSics.forEach(m => mapaSics.removeLayer(m));
+      marcadoresSics = [];
+      const cores = { 'Pendente': '#e53935', 'Em andamento': '#fb8c00', 'Concluído': '#2e7d32' };
+      sics.forEach(s => {
+        const cor = cores[s.status] || '#455a64';
+        const icone = L.divIcon({
+          className: '',
+          html: `<div style="width:16px;height:16px;border-radius:50%;background:${cor};border:2px solid #fff;box-shadow:0 0 3px rgba(0,0,0,0.6)"></div>`,
+          iconSize: [16, 16], iconAnchor: [8, 8]
+        });
+        const marker = L.marker([s.lat, s.lng], { icon: icone }).addTo(mapaSics);
+        marker.bindPopup(`
+          <div style="font-size:13px;min-width:180px">
+            <b>${s.protocolo || 'Sem protocolo'}</b><br>
+            ${s.requerente ? 'Requerente: ' + s.requerente + '<br>' : ''}
+            ${(s.rua || s.numero || s.bairro) ? [s.rua, s.numero].filter(Boolean).join(', ') + (s.bairro ? ' — ' + s.bairro : '') + '<br>' : ''}
+            ${s.tipoServico ? 'Serviço: ' + s.tipoServico + '<br>' : ''}
+            Status: <b>${s.status}</b><br>
+            ${s.observacoes ? 'Obs: ' + s.observacoes + '<br>' : ''}
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <button onclick="iniciarVistoriaDeSic('${s.id}')" style="background:#2e7d32;color:#fff;border:none;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:12px">Iniciar Vistoria</button>
+              <button onclick="abrirFormSic('${s.id}')" style="background:#455a64;color:#fff;border:none;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:12px">Editar</button>
+              <button onclick="excluirSic('${s.id}')" style="background:#c62828;color:#fff;border:none;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:12px">Excluir</button>
+            </div>
+          </div>
+        `);
+        marcadoresSics.push(marker);
+      });
+    }
+
+    function iniciarVistoriaDeSic(id) {
+      const s = sics.find(x => x.id === id);
+      if (!s) return;
+
+      // Marca como "Em andamento" automaticamente ao iniciar a vistoria a partir do SIC
+      // (a conclusão continua sendo manual, já que uma vistoria pode não resolver o SIC de primeira)
+      if (s.status === 'Pendente') {
+        s.status = 'Em andamento';
+        localStorage.setItem('sics', JSON.stringify(sics));
+      }
+
+      mostrarTela('vistoria');
+
+      const btnRefSic = [...document.querySelectorAll('.btn-ref')].find(b => b.textContent.trim() === 'SIC');
+      if (btnRefSic) selecionarRef('SIC', btnRefSic);
+      document.getElementById('numeroReferencia').value = s.protocolo || '';
+
+      document.getElementById('bairro').value = s.bairro || '';
+      document.getElementById('bairroInput').value = s.bairro || '';
+      document.getElementById('rua').value = s.rua || '';
+      document.getElementById('numeroEndereco').value = s.numero || '';
+
+      if (!mapa) initMapa();
+      setTimeout(() => {
+        mapa.invalidateSize();
+        mapa.setView([s.lat, s.lng], 18);
+        if (!marcador) marcador = L.marker([s.lat, s.lng]).addTo(mapa);
+        else marcador.setLatLng([s.lat, s.lng]);
+        latitude = s.lat; longitude = s.lng;
+        coordsDiv.innerText = `Lat: ${s.lat.toFixed(6)} | Long: ${s.lng.toFixed(6)}`;
+      }, 150);
+
+      if (s.tipoServico) {
+        const btnServ = [...document.querySelectorAll('.btn-servico')].find(b => b.textContent.trim() === s.tipoServico);
+        if (btnServ) selecionarServico(s.tipoServico, btnServ);
+      }
     }
 
     function capturarLocalizacao() {
@@ -1896,6 +2217,15 @@
             if (!a.fotos || a.fotos.length === 0) return;
             y = checkPagina(y, 14);
 
+            // Calcula a legenda e sua altura ANTES de reservar o espaço da página,
+            // para que legendas grandes (muitos itens de diagnóstico) não sejam cortadas.
+            const diagTexto = Array.isArray(a.diagnostico) && a.diagnostico.length ? a.diagnostico.join(' • ') : (a.diagnostico || '');
+            const legenda = [a.especie, diagTexto].filter(Boolean).join(' — ');
+            const legLH = 8 * 1.15 / doc.internal.scaleFactor; // altura de linha real p/ fonte 8pt
+            doc.setFontSize(8);
+            const legLines = legenda ? doc.splitTextToSize(legenda, pW - 2*mX - 4) : [];
+            const alturaLeg = legenda ? (legLines.length * legLH + 4) : 0;
+
             // Título do grupo
             doc.setFillColor(240, 240, 240);
             doc.rect(mX, y - 3, pW - 2*mX, 7, 'F');
@@ -1907,7 +2237,7 @@
             // Fotos lado a lado
             const fW = (pW - 2*mX - 5) / 2;
             const fH = fW * 0.75;
-            y = checkPagina(y, fH + 16);
+            y = checkPagina(y, fH + alturaLeg + 8);
 
             a.fotos.forEach((src, idx) => {
               const posX = mX + idx * (fW + 5);
@@ -1921,15 +2251,15 @@
             y += fH + 3;
 
             // Legenda abaixo das fotos
-            const diagTexto = Array.isArray(a.diagnostico) && a.diagnostico.length ? a.diagnostico.join(' • ') : (a.diagnostico || '');
-            const legenda = [a.especie, diagTexto].filter(Boolean).join(' — ');
             if (legenda) {
+              doc.setFontSize(8);
               doc.setFillColor(245, 245, 245);
-              doc.rect(mX, y, pW - 2*mX, 8, 'F');
-              doc.setFontSize(8); doc.setTextColor(50,50,50);
-              const legLines = doc.splitTextToSize(legenda, pW - 2*mX - 4);
-              doc.text(legLines[0], mX + 2, y + 5);
-              y += 12;
+              doc.rect(mX, y, pW - 2*mX, alturaLeg, 'F');
+              doc.setTextColor(50,50,50);
+              legLines.forEach((linha, i) => {
+                doc.text(linha, mX + 2, y + legLH + i * legLH - 1.5);
+              });
+              y += alturaLeg + 4;
             }
           });
 
